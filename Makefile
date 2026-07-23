@@ -25,8 +25,10 @@ GOARCH ?= $(shell go env GOARCH)
 GOOS ?= $(shell go env GOOS)
 GO_VERSION := $(shell go version)
 GO_SHORT_VERSION := $(shell go version | awk '{print $3}')
-BUILD_TIME := $(shell date "+%Y-%m-%d %H:%M:%S")
-COMMIT_ID := $(shell git rev-parse HEAD 2>/dev/null)
+SOURCE_DATE_EPOCH ?= $(shell git show -s --format=%ct HEAD)
+VCS_REF ?= $(shell git rev-parse HEAD 2>/dev/null)
+BUILD_TIME ?= $(shell python3 -c 'import datetime; print(datetime.datetime.fromtimestamp(int("$(SOURCE_DATE_EPOCH)"), datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"))')
+COMMIT_ID ?= $(VCS_REF)
 DOCKER_IMAGE ?=
 VERSION_PKG := github.com/erda-project/erda-infra/base/version
 VERSION_OPS := -ldflags "\
@@ -46,8 +48,8 @@ CLI_VERSION_OPS := -ldflags "\
 # GOPROXY ?= https://goproxy.cn/
 # GOPRIVATE ?= ""
 GO_BUILD_ENV := PROJ_PATH=${PROJ_PATH} GOPROXY=${GOPROXY} GOPRIVATE=${GOPRIVATE}
-GO_BUILD_OPTIONS := -tags dynamic
-CLI_GO_BUILD_OPTIONS := -tags dynamic -trimpath
+GO_BUILD_OPTIONS := -tags dynamic -trimpath -buildvcs=false
+CLI_GO_BUILD_OPTIONS := -tags dynamic -trimpath -buildvcs=false
 
 define build_cli_binary
 	cd tools/cli && \
@@ -75,6 +77,11 @@ build-version:
 	@echo CommitID: ${COMMIT_ID}
 	@echo DockerImage: ${DOCKER_IMAGE}
 	@echo ------------ End   Build Version Details ------------
+
+.PHONY: print-go-build-options
+print-go-build-options:
+	@echo "GO_BUILD_OPTIONS=${GO_BUILD_OPTIONS}"
+	@echo "CLI_GO_BUILD_OPTIONS=${CLI_GO_BUILD_OPTIONS}"
 
 tidy:
 	@if [[ -f "${BUILD_PATH}/go.mod" ]]; then \
