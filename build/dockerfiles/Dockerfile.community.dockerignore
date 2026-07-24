@@ -1,0 +1,15 @@
+.git
+.github/workflows/ci-it.yml
+.github/workflows/ci-it-noneed.yml
+build/dockerfiles/Dockerfile
+build/dockerfiles/Dockerfile-action-agent
+build/dockerfiles/Dockerfile-cluster-ops
+build/dockerfiles/Dockerfile-volume-provisioner
+build/dockerfiles/agent-injector
+build/dockerfiles/base
+build/dockerfiles/cli
+build/dockerfiles/cluster-agent
+build/dockerfiles/reportengine
+build/scripts/buildkit_image.sh
+build/scripts/docker_image.sh
+pipeline.yml

@@ -17,6 +17,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -44,6 +45,11 @@ func main() {
 			}
 		}
 	}
+	scenarioNames := make([]string, 0, len(comps))
+	for scenarioName := range comps {
+		scenarioNames = append(scenarioNames, scenarioName)
+	}
+	sort.Strings(scenarioNames)
 	buf.WriteString("//generated file, DO NOT EDIT\n")
 	buf.WriteString("package auto_register\n")
 	buf.WriteString("import (\n")
@@ -52,7 +58,8 @@ func main() {
 	buf.WriteString("\n")
 	buf.WriteString("\t\"github.com/erda-project/erda/apistructs\"\n")
 	buf.WriteString("\tprotocol \"github.com/erda-project/erda/internal/core/openapi/legacy/component-protocol\"\n")
-	for s, v := range comps {
+	for _, s := range scenarioNames {
+		v := comps[s]
 		for _, c := range v {
 			buf.WriteString(fmt.Sprintf(
 				"\t%s \"github.com/erda-project/erda/internal/core/openapi/legacy/component-protocol/scenarios/%s/components/%s\"\n",
@@ -63,7 +70,8 @@ func main() {
 	buf.WriteString("\n")
 	buf.WriteString("func RegisterAll() {\n")
 	buf.WriteString("\tspecs := []*protocol.CompRenderSpec{\n")
-	for s, v := range comps {
+	for _, s := range scenarioNames {
+		v := comps[s]
 		for _, c := range v {
 			buf.WriteString(fmt.Sprintf("\t\t{Scenario: \"%s\", CompName: \"%s\", RenderC: %s.RenderCreator},\n",
 				s, c, strings.Replace(s, "-", "", -1)+c))
@@ -82,7 +90,7 @@ func main() {
 
 	// TODO: use go:embed is better
 	buf.WriteString("\tvar protocols = map[string]string{\n")
-	for s := range comps {
+	for _, s := range scenarioNames {
 		buf.WriteString(fmt.Sprintf("\t\t\"%s\": `\n", s))
 		pData, err := os.ReadFile("../scenarios/" + s + "/protocol.yml")
 		if err != nil {

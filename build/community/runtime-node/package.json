@@ -1,0 +1,12 @@
+{
+  "name": "erda-community-runtime-tools",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "jackson-converter": "1.0.10"
+  },
+  "overrides": {
+    "jsonpath-plus": "10.3.0",
+    "uuid": "11.1.1"
+  }
+}

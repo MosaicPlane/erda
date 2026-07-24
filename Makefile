@@ -219,6 +219,49 @@ build-all: build-version submodule prepare tidy
 	./build/scripts/build_all/build_all.sh; \
 	make cli
 
+.PHONY: community-source-tree
+community-source-tree:
+	@test ! -e .git
+	@test ! -f .gitmodules || { echo "community build does not accept submodules" >&2; exit 1; }
+
+.PHONY: build-all-community
+build-all-community: build-version community-source-tree prepare community-tidy
+	@set -eo pipefail; \
+	./build/scripts/build_all/build_all.sh; \
+	$(MAKE) cli
+
+.PHONY: build-one-community
+build-one-community: build-version community-source-tree prepare community-tidy
+	@set -eo pipefail; \
+	test -n "${MODULE_PATH}"; \
+	./build/scripts/build_all/build_all.sh
+
+.PHONY: community-tidy
+community-tidy:
+	@${GO_BUILD_ENV} bash build/community/go-mod-tidy-retry.sh
+
+.PHONY: verify-community-image
+verify-community-image:
+	env -u APP_NAME -u BUILD_TIME -u COMMIT_ID -u ERDA_VERSION \
+		bash build/scripts/tests/community_metadata_test.sh
+	bash build/scripts/tests/community_image_test.sh
+	bash build/scripts/tests/community_prepare_determinism_test.sh
+	bash build/scripts/tests/community_tidy_retry_test.sh
+	bash build/scripts/tests/community_proto_policy_test.sh
+	bash build/scripts/tests/community_proto_tamper_test.sh
+
+.PHONY: verify-community-image-exporters
+verify-community-image-exporters: verify-community-image
+	bash build/scripts/tests/community_exporter_reproducibility_test.sh
+
+.PHONY: verify-community-image-reproducibility
+verify-community-image-reproducibility: verify-community-image-exporters
+	bash build/scripts/tests/community_reproducibility_test.sh
+
+.PHONY: build-community-image
+build-community-image: verify-community-image
+	bash build/scripts/community_image.sh
+
 build-one: build-version submodule prepare tidy
 	@set -eo pipefail; \
 	./build/scripts/build_all/build_all.sh

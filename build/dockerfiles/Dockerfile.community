@@ -1,0 +1,157 @@
+ARG ERDA_BUILD_IMAGE=docker.io/library/golang@sha256:ab1d1823abb55a9504d2e3e003b75b36dbeb1cbcc4c92593d85a84ee46becc6c
+ARG COMMUNITY_GO_BUILD_PARALLELISM=1
+ARG COMMUNITY_GO_MAX_PROCS=2
+ARG COMMUNITY_GO_EXTRA_FLAGS=""
+FROM ${ERDA_BUILD_IMAGE} AS community-base
+
+ARG SOURCE_DATE_EPOCH
+ARG LIBGIT2_COMMIT
+ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
+ENV TZ=UTC
+COPY build/community/debian.sources /etc/apt/sources.list.d/debian.sources
+RUN rm -f /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources.list \
+ && apt-get update \
+ && apt-get install -y --allow-downgrades --no-install-recommends \
+      ca-certificates cmake curl g++ gcc git jq \
+      libssl3=3.0.16-1~deb12u1 libssl-dev=3.0.16-1~deb12u1 librdkafka-dev \
+      net-tools nginx nginx-extras nodejs npm python3-pip \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -f /var/cache/ldconfig/aux-cache \
+      /var/log/alternatives.log /var/log/dpkg.log \
+ && rm -rf /var/log/apt/*
+RUN git init /tmp/libgit2 \
+ && git -C /tmp/libgit2 remote add origin https://github.com/libgit2/libgit2.git \
+ && git -C /tmp/libgit2 fetch --depth=1 origin "${LIBGIT2_COMMIT}" \
+ && git -C /tmp/libgit2 checkout --detach FETCH_HEAD \
+ && cmake -S /tmp/libgit2 -B /tmp/libgit2/build \
+      -DBUILD_CLAR=OFF -DCMAKE_INSTALL_PREFIX=/usr \
+ && cmake --build /tmp/libgit2/build --target install --parallel 2 \
+ && rm -rf /tmp/libgit2
+
+FROM community-base AS proto-tools
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+WORKDIR /go/src/github.com/erda-project/erda
+ARG COMMUNITY_GO_BUILD_PARALLELISM
+ARG COMMUNITY_GO_MAX_PROCS
+ARG COMMUNITY_GO_EXTRA_FLAGS
+ENV GOFLAGS="${COMMUNITY_GO_EXTRA_FLAGS} -buildvcs=false -p=${COMMUNITY_GO_BUILD_PARALLELISM}"
+ENV GOMAXPROCS=${COMMUNITY_GO_MAX_PROCS}
+RUN [[ "${COMMUNITY_GO_BUILD_PARALLELISM}" =~ ^[1-9][0-9]*$ ]] \
+ && [[ "${COMMUNITY_GO_MAX_PROCS}" =~ ^[1-9][0-9]*$ ]]
+COPY build/community/proto-tools.lock build/community/proto-tools.lock
+COPY build/community/proto-bootstrap.sh build/community/proto-bootstrap.sh
+RUN bash build/community/proto-bootstrap.sh /opt/community-proto-tools
+
+FROM proto-tools AS proto-inputs
+COPY build/community/proto-inputs.lock build/community/proto-inputs.lock
+COPY build/community/proto-generate.sh build/community/proto-generate.sh
+COPY api/proto api/proto
+COPY api/proto-go api/proto-go
+RUN bash build/community/proto-generate.sh \
+      stage-inputs /go/src/github.com/erda-project/erda /opt/community-proto-inputs
+
+FROM proto-inputs AS proto-gen-a
+RUN PROTO_GENERATION_SLOT=a \
+    bash build/community/proto-generate.sh \
+      generate /opt/community-proto-tools /opt/community-proto-inputs /tmp/proto-go-a
+
+FROM proto-inputs AS proto-gen-b
+RUN PROTO_GENERATION_SLOT=b \
+    bash build/community/proto-generate.sh \
+      generate /opt/community-proto-tools /opt/community-proto-inputs /tmp/proto-go-b
+
+FROM proto-gen-a AS proto-verify
+COPY . .
+COPY --from=proto-gen-b /tmp/proto-go-b /tmp/proto-go-b
+RUN bash build/scripts/tests/community_proto_determinism_test.sh \
+      /tmp/proto-go-a /tmp/proto-go-b
+RUN bash build/scripts/tests/community_proto_closure_test.sh \
+      /opt/community-proto-tools /opt/community-proto-inputs
+RUN bash build/scripts/tests/community_proto_coverage_test.sh /tmp/proto-go-a
+RUN rm -rf api/proto-go \
+ && cp -a /tmp/proto-go-a api/proto-go
+RUN bash build/scripts/tests/community_proto_runtime_test.sh /tmp/proto-go-a
+RUN cd api/proto-go \
+ && go test -mod=readonly ./...
+RUN make prepare \
+      VCS_REF=0000000000000000000000000000000000000000 \
+      COMMIT_ID=0000000000000000000000000000000000000000 \
+      VERSION=community-proto-verify
+RUN go list -mod=readonly ./...
+
+FROM community-base AS build-source
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+WORKDIR /go/src/github.com/erda-project/erda
+ARG SOURCE_DATE_EPOCH
+ARG VCS_REF
+ARG VERSION
+ARG EMBEDDED_IMAGE
+ARG COMMUNITY_GO_BUILD_PARALLELISM
+ARG COMMUNITY_GO_MAX_PROCS
+ARG COMMUNITY_GO_EXTRA_FLAGS
+ENV GOFLAGS="${COMMUNITY_GO_EXTRA_FLAGS} -buildvcs=false -p=${COMMUNITY_GO_BUILD_PARALLELISM}"
+ENV GOMAXPROCS=${COMMUNITY_GO_MAX_PROCS}
+COPY . .
+COPY --from=proto-verify /tmp/proto-go-a/ ./api/proto-go/
+RUN [[ "${SOURCE_DATE_EPOCH}" =~ ^[0-9]+$ ]] \
+ && [[ "${VCS_REF}" =~ ^[0-9a-f]{40}$ ]] \
+ && test -n "${VERSION}" \
+ && [[ "${COMMUNITY_GO_BUILD_PARALLELISM}" =~ ^[1-9][0-9]*$ ]] \
+ && [[ "${COMMUNITY_GO_MAX_PROCS}" =~ ^[1-9][0-9]*$ ]]
+
+FROM build-source AS build
+RUN make build-all-community \
+      SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH}" \
+      VCS_REF="${VCS_REF}" \
+      COMMIT_ID="${VCS_REF}" \
+      VERSION="${VERSION}" \
+      DOCKER_IMAGE="${EMBEDDED_IMAGE}"
+RUN mkdir -p /tmp/extensions \
+ && if [ -d extensions ]; then cp -a extensions/. /tmp/extensions/; fi
+RUN ./build/scripts/build_all/app_handler.sh \
+      /go/src/github.com/erda-project/erda "" /erda
+
+FROM build-source AS community-modules
+RUN go mod download all
+
+FROM community-modules AS erda-server-build
+ARG COMMUNITY_DIAGNOSTIC_SLOT=default
+RUN test -n "${COMMUNITY_DIAGNOSTIC_SLOT}" \
+ && make build-one-community \
+      MODULE_PATH=erda-server \
+      SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH}" \
+      VCS_REF="${VCS_REF}" \
+      COMMIT_ID="${VCS_REF}" \
+      VERSION="${VERSION}" \
+      DOCKER_IMAGE="${EMBEDDED_IMAGE}"
+
+FROM scratch AS erda-server-output
+COPY --from=erda-server-build \
+  /go/src/github.com/erda-project/erda/cmd/erda-server/bin /erda-server
+
+FROM community-base AS runtime-base
+COPY build/community/runtime-node/package.json \
+     build/community/runtime-node/package-lock.json /tmp/runtime-node/
+COPY build/community/python-requirements.lock /tmp/python-requirements.lock
+RUN npm ci --omit=dev --ignore-scripts --prefix /tmp/runtime-node \
+      --cache=/tmp/community-npm-cache \
+      --registry=https://registry.npmjs.org \
+ && ln -s /tmp/runtime-node/node_modules/.bin/jackson-path /usr/local/bin/jackson-path \
+ && pip3 install --no-cache-dir --break-system-packages --require-hashes \
+      -r /tmp/python-requirements.lock \
+ && rm /tmp/python-requirements.lock \
+ && rm -rf /root/.npm /tmp/community-npm-cache
+
+FROM runtime-base
+ARG VCS_REF
+LABEL org.opencontainers.image.source="https://github.com/MosaicPlane/erda" \
+      org.opencontainers.image.revision="${VCS_REF}"
+COPY --from=build /erda /erda
+COPY --from=build /go/src/github.com/erda-project/erda/bin/erda-cli /erda/bin/erda-cli
+COPY --from=build /tmp/extensions /erda/conf/extensions-init
+COPY --from=build \
+  /go/src/github.com/erda-project/erda/build/dockerfiles/gittar-resource/.gitconfig \
+  /root/.gitconfig
+WORKDIR /erda
+ENV MODULE_PATH=erda-server
+CMD ["bash", "-c", "exec /erda/cmd/${MODULE_PATH}/bin"]

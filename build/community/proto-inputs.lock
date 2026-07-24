@@ -1,0 +1,8 @@
+OTEL_REPOSITORY=https://github.com/open-telemetry/opentelemetry-proto
+OTEL_COMMIT=395c8422fe90080314c7d9b4114d701a0c049e1f
+OTEL_TREE=16416bfaeb8f0d91a796b064004bad16eb176bd1
+OTEL_ARCHIVE=opentelemetry-proto-395c8422fe90080314c7d9b4114d701a0c049e1f.tar.gz
+OTEL_URL=https://codeload.github.com/open-telemetry/opentelemetry-proto/tar.gz/395c8422fe90080314c7d9b4114d701a0c049e1f
+OTEL_SHA256=61c9f78a984a74c19cd73672fee93d13d494460e6d727042656a571b3c6726ec
+OTEL_PROTO_COUNT=8
+PROTO_GO_MODULE=github.com/erda-project/erda-proto-go
