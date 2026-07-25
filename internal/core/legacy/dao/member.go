@@ -480,15 +480,16 @@ func (client *DBClient) GetAllUserJoinedProjects(orgs []string) ([]*model.UserJo
 	cli := client.Table("dice_member as member").
 		Select("member.id as id, member.user_id as userID, member.name as userName, member.nick as userNickName," +
 			" member.email as userEmail, project.id as projectID, project.name as projectName, project.display_name as projectDisplayName," +
-			" org.id as orgID, org.name as orgName, org.display_name as orgDisplayName, GROUP_CONCAT(labels.name) as projectLabels").
+			" org.id as orgID, org.name as orgName, org.display_name as orgDisplayName," +
+			" (select GROUP_CONCAT(label.name) from dice_labels as label" +
+			" where label.project_id = member.project_id and label.type = 'project'" +
+			" and label.id in (select label_id from dice_label_relations where ref_id = member.project_id)) as projectLabels").
 		Joins("left join erda_project as project on member.project_id = project.id").
 		Joins("left join dice_org as org on member.org_id = org.id").
-		Joins("left join dice_labels as labels on labels.project_id = member.project_id and labels.type = 'project' and labels.id in (select label_id from dice_label_relations where ref_id=project.id)").
 		Where("member.scope_type = 'project' and org.id != 0")
 	if len(orgs) > 0 {
 		cli = cli.Where("org.name in (?)", orgs)
 	}
-	cli = cli.Group("userID, projectID, orgID")
 	if err := cli.Find(&userProjects).Error; err != nil {
 		return nil, err
 	}
