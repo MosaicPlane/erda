@@ -28,6 +28,7 @@ grep -q 'exit-code: "0"' "${workflow}"
 
 for action in \
   'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' \
+  'docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd' \
   'docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7' \
   'anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610' \
   'aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25' \
