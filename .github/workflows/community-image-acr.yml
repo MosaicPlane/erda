@@ -35,6 +35,11 @@ jobs:
           test -n "${ACR_USERNAME}"
           test -n "${ACR_PASSWORD}"
 
+      - name: Install policy tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ripgrep
+
       - name: Verify community image policy
         run: bash build/scripts/tests/community_image_test.sh
 
