@@ -95,7 +95,7 @@ func (m *Member) Convert2APIDTO() apistructs.Member {
 
 type UserJoinedProject struct {
 	ID                 uint64 `json:"id" gorm:"column:id"`
-	UserID             uint64 `json:"userID" gorm:"column:userID"`
+	UserID             string `json:"userID" gorm:"column:userID"`
 	UserName           string `json:"userName" gorm:"column:userName"`
 	UserNickName       string `json:"userNickName" gorm:"column:userNickName"`
 	UserEmail          string `json:"userEmail" gorm:"column:userEmail"`

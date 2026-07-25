@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -79,13 +78,8 @@ func (p *provider) queryPersonalContributors(rw http.ResponseWriter, r *http.Req
 		}
 		req.OrgID = orgID
 	}
-	if req.UserID == 0 {
-		userID, err := strconv.ParseUint(identityInfo.UserID, 10, 64)
-		if err != nil {
-			p.wrapBadRequest(rw, fmt.Errorf("invalid userID: %s", identityInfo.UserID))
-			return
-		}
-		req.UserID = userID
+	if req.UserID == "" {
+		req.UserID = apistructs.UserIdentifier(identityInfo.UserID)
 	}
 	if len(req.UserEmail) == 0 {
 		p.wrapBadRequest(rw, fmt.Errorf("missing user email"))
@@ -215,7 +209,7 @@ func (p *provider) makeActualManDaySql(req *apistructs.PersonalContributionReque
 			Where("timestamp >= ?", req.Start).
 			Where("timestamp <= ?", req.End).
 			Where("tag_values[indexOf(tag_keys,'org_id')] = '?'", req.OrgID).
-			Where("tag_values[indexOf(tag_keys,'user_id')] = '?'", req.UserID).
+			Where("tag_values[indexOf(tag_keys,'user_id')] = '?'", string(req.UserID)).
 			Where("tag_values[indexOf(tag_keys,'emp_project_code')] != ''").
 			Group("orgID, projectID, userID")
 		if req.GroupByDay {

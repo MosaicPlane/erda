@@ -27,13 +27,8 @@ func (sc Sysconf) DependsOn(k string) map[string]string {
 			"GITTAR_PUBLIC_URL":  sc.Platform.PublicURL("gittar"),
 		},
 		"dashboard": {"DASHBOARD_ADDR": sc.Cluster.Host("dashboard") + ":7081"},
-		"uc": {
-			"UC_ADDR":        sc.Cluster.Host("uc") + ":8080",
-			"UC_PUBLIC_ADDR": sc.Platform.Domain("uc"),
-			"UC_PUBLIC_URL":  sc.Platform.PublicURL("uc"),
-		},
-		"officer":  {"OFFICER_ADDR": sc.Cluster.Host("officer") + ":9029"},
-		"pipeline": {"PIPELINE_ADDR": sc.Cluster.Host("pipeline") + ":3081"},
+		"officer":   {"OFFICER_ADDR": sc.Cluster.Host("officer") + ":9029"},
+		"pipeline":  {"PIPELINE_ADDR": sc.Cluster.Host("pipeline") + ":3081"},
 		"collector": {
 			"COLLECTOR_ADDR":        sc.Cluster.Host("collector") + ":7076",
 			"COLLECTOR_PUBLIC_ADDR": sc.Platform.Domain("collector"),

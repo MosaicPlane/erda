@@ -40,8 +40,6 @@ type Conf struct {
 	MySQLDatabase         string `env:"MYSQL_DATABASE"`
 	MySQLLoc              string `env:"MYSQL_LOC" default:"Local"`
 	GittarOutterURL       string `env:"GITTAR_PUBLIC_URL"`
-	UCClientID            string `env:"UC_CLIENT_ID"`
-	UCClientSecret        string `env:"UC_CLIENT_SECRET"`
 	RootDomain            string `env:"DICE_ROOT_DOMAIN"`
 	UIPublicURL           string `env:"UI_PUBLIC_URL"`
 	UIDomain              string `env:"UI_PUBLIC_ADDR"`
@@ -252,16 +250,6 @@ func MySQLLoc() string {
 // GittarOutterURL 返回 GittarOutterURL 选项.
 func GittarOutterURL() string {
 	return cfg.GittarOutterURL
-}
-
-// UCClientID 返回 UCClientID 选项.
-func UCClientID() string {
-	return cfg.UCClientID
-}
-
-// UCClientSecret 返回 UCClientSecret 选项.
-func UCClientSecret() string {
-	return cfg.UCClientSecret
 }
 
 // RootDomain 返回 RootDomain 选项

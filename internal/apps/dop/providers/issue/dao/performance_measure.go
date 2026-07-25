@@ -22,10 +22,10 @@ type Line struct {
 	ID uint64 `gorm:"column:id"`
 }
 
-func (client *DBClient) GetBugCountByUserID(userID uint64, projectID uint64, wontfixStateIDS []uint64, stages []string, severities []string, withReopened bool, creator uint64) (uint64, []uint64, error) {
+func (client *DBClient) GetBugCountByUserID(userID string, projectID uint64, wontfixStateIDS []uint64, stages []string, severities []string, withReopened bool, creator string) (uint64, []uint64, error) {
 	var lines []Line
 	cli := client.Table("dice_issues").Select("id").Where("deleted = 0").Where("type = ?", apistructs.IssueTypeBug)
-	if userID != 0 {
+	if userID != "" {
 		cli = cli.Where("owner = ?", userID)
 	}
 	if len(wontfixStateIDS) > 0 {
@@ -43,7 +43,7 @@ func (client *DBClient) GetBugCountByUserID(userID uint64, projectID uint64, won
 	if withReopened {
 		cli = cli.Where("reopen_count > 0")
 	}
-	if creator != 0 {
+	if creator != "" {
 		cli = cli.Where("creator = ?", creator)
 	}
 	if err := cli.Find(&lines).Error; err != nil {
@@ -54,13 +54,13 @@ func (client *DBClient) GetBugCountByUserID(userID uint64, projectID uint64, won
 	return uint64(len(lines)), issueIDs, nil
 }
 
-func (client *DBClient) GetIssueNumByStatesAndUserID(ownerID, assigneeID, projectID uint64, issueType apistructs.IssueType, states, statesNotIn []uint64) (uint64, []uint64, error) {
+func (client *DBClient) GetIssueNumByStatesAndUserID(ownerID, assigneeID string, projectID uint64, issueType apistructs.IssueType, states, statesNotIn []uint64) (uint64, []uint64, error) {
 	var lines []Line
 	cli := client.Table("dice_issues").Where("deleted = 0").Select("id")
-	if ownerID != 0 {
+	if ownerID != "" {
 		cli = cli.Where("owner = ?", ownerID)
 	}
-	if assigneeID != 0 {
+	if assigneeID != "" {
 		cli = cli.Where("assignee = ?", assigneeID)
 	}
 	if projectID != 0 {

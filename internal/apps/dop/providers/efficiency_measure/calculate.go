@@ -61,35 +61,35 @@ func (p *provider) calPersonalFields(personalInfo *PersonalPerformanceInfo) (*pe
 	if err != nil {
 		return nil, err
 	}
-	demandBugTotal, demandBugTotalIDs, err := p.issueDB.GetBugCountByUserID(userID, projectID, wontfixStateIDS, p.Cfg.DemandStageList, nil, false, 0)
+	demandBugTotal, demandBugTotalIDs, err := p.issueDB.GetBugCountByUserID(userID, projectID, wontfixStateIDS, p.Cfg.DemandStageList, nil, false, "")
 	if err != nil {
 		return nil, err
 	}
 	fields.DemandDesignBugTotal = demandBugTotal
 	fields.DemandDesignBugTotalIDs = demandBugTotalIDs
 
-	architectureDesignTotal, architectureDesignTotalIDs, err := p.issueDB.GetBugCountByUserID(userID, projectID, wontfixStateIDS, p.Cfg.ArchitectureStageList, nil, false, 0)
+	architectureDesignTotal, architectureDesignTotalIDs, err := p.issueDB.GetBugCountByUserID(userID, projectID, wontfixStateIDS, p.Cfg.ArchitectureStageList, nil, false, "")
 	if err != nil {
 		return nil, err
 	}
 	fields.ArchitectureDesignBugTotal = architectureDesignTotal
 	fields.ArchitectureDesignBugTotalIDs = architectureDesignTotalIDs
 
-	seriousBugTotal, seriousBugTotalIDs, err := p.issueDB.GetBugCountByUserID(userID, projectID, wontfixStateIDS, nil, []string{string(apistructs.IssueSeverityFatal), string(apistructs.IssueSeveritySerious)}, false, 0)
+	seriousBugTotal, seriousBugTotalIDs, err := p.issueDB.GetBugCountByUserID(userID, projectID, wontfixStateIDS, nil, []string{string(apistructs.IssueSeverityFatal), string(apistructs.IssueSeveritySerious)}, false, "")
 	if err != nil {
 		return nil, err
 	}
 	fields.SeriousBugTotal = seriousBugTotal
 	fields.SeriousBugTotalIDs = seriousBugTotalIDs
 
-	reopenBugTotal, reopenBugTotalIDs, err := p.issueDB.GetBugCountByUserID(userID, projectID, wontfixStateIDS, nil, nil, true, 0)
+	reopenBugTotal, reopenBugTotalIDs, err := p.issueDB.GetBugCountByUserID(userID, projectID, wontfixStateIDS, nil, nil, true, "")
 	if err != nil {
 		return nil, err
 	}
 	fields.ReopenBugTotal = reopenBugTotal
 	fields.ReopenBugTotalIDs = reopenBugTotalIDs
 
-	submitBugTotal, submitBugTotalIDs, err := p.issueDB.GetBugCountByUserID(0, projectID, wontfixStateIDS, nil, nil, false, userID)
+	submitBugTotal, submitBugTotalIDs, err := p.issueDB.GetBugCountByUserID("", projectID, wontfixStateIDS, nil, nil, false, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +103,7 @@ func (p *provider) calPersonalFields(personalInfo *PersonalPerformanceInfo) (*pe
 	fields.CreateTestCaseTotal = testCaseTotal
 	fields.CreateTestCaseTotalIDs = testCaseTotalIDs
 
-	requirementTotal, requirementTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(0, userID, projectID, apistructs.IssueTypeRequirement, nil, wontfixStateIDS)
+	requirementTotal, requirementTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID("", userID, projectID, apistructs.IssueTypeRequirement, nil, wontfixStateIDS)
 	if err != nil {
 		return nil, err
 	}
@@ -118,63 +118,63 @@ func (p *provider) calPersonalFields(personalInfo *PersonalPerformanceInfo) (*pe
 	if err != nil {
 		return nil, err
 	}
-	workingRequirementTotal, workingRequirementTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(0, userID, projectID, apistructs.IssueTypeRequirement, workingStateIDS, nil)
+	workingRequirementTotal, workingRequirementTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID("", userID, projectID, apistructs.IssueTypeRequirement, workingStateIDS, nil)
 	if err != nil {
 		return nil, err
 	}
 	fields.WorkingRequirementTotal = workingRequirementTotal
 	fields.WorkingRequirementTotalIDs = workingRequirementTotalIDs
 
-	openRequirementTotal, openRequirementTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(0, userID, projectID, apistructs.IssueTypeRequirement, openStateIDS, nil)
+	openRequirementTotal, openRequirementTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID("", userID, projectID, apistructs.IssueTypeRequirement, openStateIDS, nil)
 	if err != nil {
 		return nil, err
 	}
 	fields.PendingRequirementTotal = openRequirementTotal
 	fields.PendingRequirementTotalIDs = openRequirementTotalIDs
 
-	bugTotal, bugTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(0, userID, projectID, apistructs.IssueTypeBug, nil, wontfixStateIDS)
+	bugTotal, bugTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID("", userID, projectID, apistructs.IssueTypeBug, nil, wontfixStateIDS)
 	if err != nil {
 		return nil, err
 	}
 	fields.BugTotal = bugTotal
 	fields.BugTotalIDs = bugTotalIDs
 
-	ownerBugTotal, ownerBugTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(userID, 0, projectID, apistructs.IssueTypeBug, nil, wontfixStateIDS)
+	ownerBugTotal, ownerBugTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(userID, "", projectID, apistructs.IssueTypeBug, nil, wontfixStateIDS)
 	if err != nil {
 		return nil, err
 	}
 	fields.OwnerBugTotal = ownerBugTotal
 	fields.OwnerBugTotalIDs = ownerBugTotalIDs
 
-	workingBugTotal, workingBugTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(0, userID, projectID, apistructs.IssueTypeBug, workingStateIDS, nil)
+	workingBugTotal, workingBugTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID("", userID, projectID, apistructs.IssueTypeBug, workingStateIDS, nil)
 	if err != nil {
 		return nil, err
 	}
 	fields.WorkingBugTotal = workingBugTotal
 	fields.WorkingBugTotalIDs = workingBugTotalIDs
 
-	pendingBugTotal, pendingBugTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(0, userID, projectID, apistructs.IssueTypeBug, openStateIDS, nil)
+	pendingBugTotal, pendingBugTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID("", userID, projectID, apistructs.IssueTypeBug, openStateIDS, nil)
 	if err != nil {
 		return nil, err
 	}
 	fields.PendingBugTotal = pendingBugTotal
 	fields.PendingBugTotalIDs = pendingBugTotalIDs
 
-	taskTotal, taskTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(0, userID, projectID, apistructs.IssueTypeTask, nil, wontfixStateIDS)
+	taskTotal, taskTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID("", userID, projectID, apistructs.IssueTypeTask, nil, wontfixStateIDS)
 	if err != nil {
 		return nil, err
 	}
 	fields.TaskTotal = taskTotal
 	fields.TaskTotalIDs = taskTotalIDs
 
-	workingTaskTotal, workingTaskTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(0, userID, projectID, apistructs.IssueTypeTask, workingStateIDS, nil)
+	workingTaskTotal, workingTaskTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID("", userID, projectID, apistructs.IssueTypeTask, workingStateIDS, nil)
 	if err != nil {
 		return nil, err
 	}
 	fields.WorkingTaskTotal = workingTaskTotal
 	fields.WorkingTaskTotalIDs = workingTaskTotalIDs
 
-	pendingTaskTotal, pendingTaskTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID(0, userID, projectID, apistructs.IssueTypeTask, openStateIDS, nil)
+	pendingTaskTotal, pendingTaskTotalIDs, err := p.issueDB.GetIssueNumByStatesAndUserID("", userID, projectID, apistructs.IssueTypeTask, openStateIDS, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +194,7 @@ func (p *provider) calPersonalFields(personalInfo *PersonalPerformanceInfo) (*pe
 		endStateIDS = append(endStateIDS, int64(id))
 	}
 	bugManHour, err := p.issueDB.GetIssuesManHour(apistructs.IssuesStageRequest{
-		Owner:          userID,
+		OwnerID:        userID,
 		IssueType:      apistructs.IssueTypeBug,
 		StatisticRange: "project",
 		RangeID:        int64(projectID),
@@ -209,7 +209,7 @@ func (p *provider) calPersonalFields(personalInfo *PersonalPerformanceInfo) (*pe
 	return fields, nil
 }
 
-func (p *provider) getTestCaseNum(creator uint64, projectID uint64) (uint64, []uint64, error) {
+func (p *provider) getTestCaseNum(creator string, projectID uint64) (uint64, []uint64, error) {
 	var issueIDs []uint64
 	if err := p.projDB.Table("dice_test_cases").Where("creator_id = ?", creator).Where("project_id = ?", projectID).Find(&issueIDs).Error; err != nil {
 		return 0, nil, err

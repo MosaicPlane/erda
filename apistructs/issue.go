@@ -1161,6 +1161,7 @@ type IssueTestCaseRelationsListRequest struct {
 type IssuesStageRequest struct {
 	Assignee       uint64    `json:"assignee"`
 	Owner          uint64    `json:"owner"`
+	OwnerID        string    `json:"ownerID,omitempty"`
 	IssueType      IssueType `json:"issueType"`
 	StatisticRange string    `json:"statisticRange"` //事件类型 项目/迭代
 	RangeID        int64     `json:"rangeId"`        //项目id/迭代id

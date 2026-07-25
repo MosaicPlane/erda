@@ -20,7 +20,7 @@ func (p *provider) checkPersonalNumberFields() {
 		if personalInfo.metricFields == nil || !personalInfo.metricFields.IsValid() {
 			fields, err := p.getPersonalMetricFields(personalInfo)
 			if err != nil {
-				p.Log.Errorf("failed to generate personal metric fields, projectID: %d, userID: %d, err: %v",
+				p.Log.Errorf("failed to generate personal metric fields, projectID: %d, userID: %s, err: %v",
 					personalInfo.userProject.ProjectID, personalInfo.userProject.UserID, err)
 				return nil
 			}

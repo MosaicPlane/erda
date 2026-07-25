@@ -156,13 +156,8 @@ func (p *provider) queryPersonalEfficiency(rw http.ResponseWriter, r *http.Reque
 		}
 		req.OrgID = orgID
 	}
-	if req.UserID == 0 {
-		userID, err := strconv.ParseUint(identityInfo.UserID, 10, 64)
-		if err != nil {
-			p.wrapBadRequest(rw, fmt.Errorf("invalid userID: %s", identityInfo.UserID))
-			return
-		}
-		req.UserID = userID
+	if req.UserID == "" {
+		req.UserID = apistructs.UserIdentifier(identityInfo.UserID)
 	}
 	if err := checkQueryRequest(req); err != nil {
 		p.wrapBadRequest(rw, err)
@@ -195,8 +190,8 @@ func (p *provider) makeEfficiencyBasicSql(req *apistructs.PersonalEfficiencyRequ
 			Where("timestamp <= ?", req.End).
 			Where("tag_values[indexOf(tag_keys,'org_id')] = '?'", req.OrgID).
 			Order("timestamp ASC")
-		if req.UserID != 0 {
-			tx = tx.Where("tag_values[indexOf(tag_keys,'user_id')] = '?'", req.UserID)
+		if req.UserID != "" {
+			tx = tx.Where("tag_values[indexOf(tag_keys,'user_id')] = '?'", string(req.UserID))
 		}
 		if len(req.ProjectIDs) > 0 {
 			tx = tx.Where("tag_values[indexOf(tag_keys,'project_id')] in (?)", strutil.ToStrSlice(req.ProjectIDs))

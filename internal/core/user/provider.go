@@ -15,7 +15,6 @@
 package user
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,43 +25,25 @@ import (
 	transhttp "github.com/erda-project/erda-infra/pkg/transport/http"
 	"github.com/erda-project/erda-infra/pkg/transport/http/encoding"
 	"github.com/erda-project/erda-proto-go/core/user/pb"
-	"github.com/erda-project/erda/internal/core/user/auth/domain"
 	"github.com/erda-project/erda/internal/core/user/common"
-	"github.com/erda-project/erda/internal/core/user/impl/iam"
 	useroidc "github.com/erda-project/erda/internal/core/user/impl/oidc"
-	"github.com/erda-project/erda/internal/core/user/impl/uc"
 	"github.com/erda-project/erda/pkg/common/apis"
 )
 
-type config struct {
-	OAuthProvider      string `default:"iam" file:"oauth_provider"`
-	EventWebhookSecret string `default:"erda" file:"event_webhook_secret"`
-}
+type config struct{}
 
 type provider struct {
 	Cfg      *config
 	Log      logs.Logger
 	Register transport.Register
 
-	IAM         iam.Interface
 	OIDC        useroidc.Interface
-	UC          uc.Interface
 	userService common.Interface
 }
 
 func (p *provider) Init(_ servicehub.Context) error {
-	switch p.Cfg.OAuthProvider {
-	case domain.OAuthProviderIAM:
-		p.userService = p.IAM
-	case domain.OAuthProviderUC:
-		p.userService = p.UC
-	case domain.OAuthProviderOIDC:
-		p.userService = p.OIDC
-	default:
-		return fmt.Errorf("illegal oauth provider %s", p.Cfg.OAuthProvider)
-	}
-
-	p.Log.Infof("use oauth provider %s as user service", p.Cfg.OAuthProvider)
+	p.userService = p.OIDC
+	p.Log.Infof("use oidc as user service")
 	if p.Register != nil {
 		pb.RegisterUserServiceImp(p.Register, p.userService, apis.Options(),
 			transport.WithHTTPOptions(
@@ -97,23 +78,6 @@ func (p *provider) Init(_ servicehub.Context) error {
 						}
 						body.Users = recv
 						return nil
-					case *pb.UserEventWebhookRequest:
-						// iam
-						if secret := r.Header.Get("x-iam-secret"); secret != "" {
-							if secret != p.Cfg.EventWebhookSecret {
-								return errors.New("secret auth fail")
-							}
-							var recv *pb.UserEventIAM
-							if err := encoding.DecodeRequest(r, &recv); err != nil {
-								return err
-							}
-							body.EventType = pb.EventType_EVENT_IAM
-							body.Payload = &pb.UserEventWebhookRequest_Data{
-								Data: recv,
-							}
-							return nil
-						}
-						return encoding.DecodeRequest(r, out)
 					default:
 						return encoding.DecodeRequest(r, out)
 					}

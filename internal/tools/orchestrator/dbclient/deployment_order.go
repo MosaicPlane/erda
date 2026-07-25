@@ -17,7 +17,6 @@ package dbclient
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -107,10 +106,10 @@ func (db *DBClient) ListDeploymentOrder(conditions *apistructs.DeploymentOrderLi
 
 		// parse user range
 		type UserIndex struct {
-			Id int
+			Id string
 		}
 		var UserRange []UserIndex
-		if err := db.Table("uc_user").Where("username like ? or nickname like ?", qv, qv).
+		if err := db.Table("mosaicplane_oidc_user").Where("username like ? or nickname like ?", qv, qv).
 			Select("id").Scan(&UserRange).Error; err != nil {
 			return 0, nil, fmt.Errorf("failed to query release info, err: %v", err)
 		}
@@ -131,7 +130,7 @@ func (db *DBClient) ListDeploymentOrder(conditions *apistructs.DeploymentOrderLi
 			rRet = make([]string, 0)
 		)
 		for _, i := range UserRange {
-			uRet = append(uRet, strconv.Itoa(i.Id))
+			uRet = append(uRet, i.Id)
 		}
 		for _, i := range ReleaseRange {
 			rRet = append(rRet, i.ReleaseId)

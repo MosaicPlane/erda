@@ -532,7 +532,7 @@ func (p *personalMetricField) IsValid() bool {
 func (p *provider) personalLabelsFunc(info *PersonalPerformanceInfo) map[string]string {
 	labels := map[string]string{
 		"project_id":           strconv.FormatUint(info.userProject.ProjectID, 10),
-		"user_id":              strconv.FormatUint(info.userProject.UserID, 10),
+		"user_id":              info.userProject.UserID,
 		"org_id":               strconv.FormatUint(info.userProject.OrgID, 10),
 		"user_name":            info.userProject.UserName,
 		"user_nickname":        info.userProject.UserNickName,

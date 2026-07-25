@@ -23,13 +23,13 @@ import (
 )
 
 // GetBackupList
-// TODO: remove uc_user dependencies
 func (svc *Service) GetBackupList(pageNo, pageSize int, repo *gitmodule.Repository) (*apistructs.BackupListResponse, error) {
 	var res apistructs.BackupListResponse
 	offset := (pageNo - 1) * pageSize
-	err := svc.db.Table("dice_files").Select("*").
+	err := svc.db.Table("dice_files").
+		Select("dice_files.*, dice_repo_files.*, directory_user.username as username").
 		Joins("LEFT OUTER JOIN dice_repo_files on dice_repo_files.uuid = dice_files.uuid").
-		Joins("LEFT OUTER JOIN uc_user on uc_user.id = dice_files.creator").
+		Joins("LEFT OUTER JOIN mosaicplane_oidc_user as directory_user on directory_user.id = dice_files.creator COLLATE utf8mb4_unicode_ci").
 		Where("dice_repo_files.repo_id = ?", repo.ID).
 		Order("dice_files.created_at desc").
 		Offset(offset).Limit(pageSize).Find(&res.RepoFiles).

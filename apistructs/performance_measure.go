@@ -14,11 +14,43 @@
 
 package apistructs
 
+import (
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+)
+
+// UserIdentifier accepts both legacy numeric user IDs and opaque OIDC IDs.
+// It serializes as a string so downstream metrics preserve the identity value.
+type UserIdentifier string
+
+func (id *UserIdentifier) UnmarshalJSON(data []byte) error {
+	raw := strings.TrimSpace(string(data))
+	if raw == "" || raw == "null" {
+		*id = ""
+		return nil
+	}
+	if strings.HasPrefix(raw, `"`) {
+		var value string
+		if err := json.Unmarshal(data, &value); err != nil {
+			return err
+		}
+		*id = UserIdentifier(value)
+		return nil
+	}
+	if _, err := strconv.ParseUint(raw, 10, 64); err != nil {
+		return fmt.Errorf("invalid user identifier %q", raw)
+	}
+	*id = UserIdentifier(raw)
+	return nil
+}
+
 type PersonalEfficiencyRequest struct {
 	Start          string                  `json:"start"`
 	End            string                  `json:"end"`
 	OrgID          uint64                  `json:"orgID"`
-	UserID         uint64                  `json:"userID"`
+	UserID         UserIdentifier          `json:"userID"`
 	ProjectIDs     []uint64                `json:"projectIDs"`
 	Operations     []ReportFilterOperation `json:"operations"`
 	LabelQuerys    []ReportLabelOperation  `json:"labelQuerys"` // deliberately use labelQuerys instead of labelQueries
@@ -26,21 +58,21 @@ type PersonalEfficiencyRequest struct {
 }
 
 type PersonalContributionRequest struct {
-	Start          string   `json:"start"`
-	End            string   `json:"end"`
-	OrgID          uint64   `json:"orgID"`
-	UserID         uint64   `json:"userID"`
-	UserEmail      string   `json:"userEmail"`
-	ProjectIDs     []uint64 `json:"projectIDs"`
-	GroupByProject bool     `json:"groupByProject"`
-	GroupByDay     bool     `json:"groupByDay"`
+	Start          string         `json:"start"`
+	End            string         `json:"end"`
+	OrgID          uint64         `json:"orgID"`
+	UserID         UserIdentifier `json:"userID"`
+	UserEmail      string         `json:"userEmail"`
+	ProjectIDs     []uint64       `json:"projectIDs"`
+	GroupByProject bool           `json:"groupByProject"`
+	GroupByDay     bool           `json:"groupByDay"`
 }
 
 type FuncPointTrendRequest struct {
-	Start          string   `json:"start"`
-	End            string   `json:"end"`
-	OrgID          uint64   `json:"orgID"`
-	UserID         uint64   `json:"userID"`
-	ProjectIDs     []uint64 `json:"projectIDs"`
-	GroupByProject bool     `json:"groupByProject"`
+	Start          string         `json:"start"`
+	End            string         `json:"end"`
+	OrgID          uint64         `json:"orgID"`
+	UserID         UserIdentifier `json:"userID"`
+	ProjectIDs     []uint64       `json:"projectIDs"`
+	GroupByProject bool           `json:"groupByProject"`
 }

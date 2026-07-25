@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -62,13 +61,8 @@ func (p *provider) queryFuncPointTrend(rw http.ResponseWriter, r *http.Request) 
 		}
 		req.OrgID = orgID
 	}
-	if req.UserID == 0 {
-		userID, err := strconv.ParseUint(identityInfo.UserID, 10, 64)
-		if err != nil {
-			p.wrapBadRequest(rw, fmt.Errorf("invalid userID: %s", identityInfo.UserID))
-			return
-		}
-		req.UserID = userID
+	if req.UserID == "" {
+		req.UserID = apistructs.UserIdentifier(identityInfo.UserID)
 	}
 
 	rawSql := p.makeFuncPointTrendSql(req)
@@ -106,7 +100,7 @@ func (p *provider) makeFuncPointTrendSql(req *apistructs.FuncPointTrendRequest) 
 			Where("timestamp >= ?", req.Start).
 			Where("timestamp <= ?", req.End).
 			Where("tag_values[indexOf(tag_keys,'org_id')] = '?'", req.OrgID).
-			Where("tag_values[indexOf(tag_keys,'user_id')] = '?'", req.UserID).
+			Where("tag_values[indexOf(tag_keys,'user_id')] = '?'", string(req.UserID)).
 			Group("orgID").
 			Group("userID").
 			Group("projectID").

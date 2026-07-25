@@ -39,7 +39,6 @@ const (
 	EnvAPIM           = "APIM_ADDR"
 	EnvTMC            = "TMC_ADDR" // TODO REMOVE
 	EnvMSP            = "MSP_ADDR"
-	EnvUC             = "UC_ADDR"
 	EnvDOP            = "DOP_ADDR"
 	EnvECP            = "ECP_ADDR"
 	EnvClusterManager = "CLUSTER_MANAGER_ADDR"
@@ -71,7 +70,6 @@ const (
 	SvcAPIM           = "apim"
 	SvcTMC            = "tmc"
 	SvcMSP            = "msp"
-	SvcUC             = "uc"
 	SvcDOP            = "dop"
 	SvcECP            = "ecp"
 	SvcClusterManager = "cluster-manager"
@@ -104,7 +102,6 @@ var ServicesEnvKeys = map[string]string{
 	SvcAPIM:           EnvAPIM,
 	SvcTMC:            EnvTMC,
 	SvcMSP:            EnvMSP,
-	SvcUC:             EnvUC,
 	SvcDOP:            EnvDOP,
 	SvcECP:            EnvECP,
 	SvcClusterManager: EnvClusterManager,
@@ -144,7 +141,6 @@ func Openapi() string        { return getURL(SvcOpenapi) }
 func KMS() string            { return getURL(SvcKMS) }
 func QA() string             { return getURL(SvcQA) }
 func APIM() string           { return getURL(SvcAPIM) }
-func UC() string             { return getURL(SvcUC) }
 func DOP() string            { return getURL(SvcDOP) }
 func ErdaServer() string     { return getURL(SvcErdaServer) }
 func ClusterManager() string { return getURL(SvcClusterManager) }

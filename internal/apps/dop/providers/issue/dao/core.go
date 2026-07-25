@@ -624,6 +624,9 @@ func (client *DBClient) GetIssuesManHour(req apistructs.IssuesStageRequest) (api
 	if req.Owner != 0 {
 		sql = sql.Where("owner = ?", req.Owner)
 	}
+	if req.OwnerID != "" {
+		sql = sql.Where("owner = ?", req.OwnerID)
+	}
 	if len(req.IssueType) > 0 {
 		sql = sql.Where("type = ?", req.IssueType)
 	}

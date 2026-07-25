@@ -478,10 +478,9 @@ func (client *DBClient) GetOrgByUserIDs(userIDs []string) ([]model.Member, error
 func (client *DBClient) GetAllUserJoinedProjects(orgs []string) ([]*model.UserJoinedProject, error) {
 	var userProjects []*model.UserJoinedProject
 	cli := client.Table("dice_member as member").
-		Select("member.id as id, user.id as userID, user.username as userName, user.nickname as userNickName," +
-			" user.email as userEmail, project.id as projectID, project.name as projectName, project.display_name as projectDisplayName," +
+		Select("member.id as id, member.user_id as userID, member.name as userName, member.nick as userNickName," +
+			" member.email as userEmail, project.id as projectID, project.name as projectName, project.display_name as projectDisplayName," +
 			" org.id as orgID, org.name as orgName, org.display_name as orgDisplayName, GROUP_CONCAT(labels.name) as projectLabels").
-		Joins("left join uc_user as user on member.user_id = user.id").
 		Joins("left join erda_project as project on member.project_id = project.id").
 		Joins("left join dice_org as org on member.org_id = org.id").
 		Joins("left join dice_labels as labels on labels.project_id = member.project_id and labels.type = 'project' and labels.id in (select label_id from dice_label_relations where ref_id=project.id)").
