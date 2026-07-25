@@ -94,6 +94,45 @@ func TestInitRollbackConfig(t *testing.T) {
 	assert.Equal(t, 5, rollbackConfig["PROD"])
 }
 
+func TestParseProjectClusterConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		want    map[string]string
+		wantErr bool
+	}{
+		{
+			name: "empty config",
+			raw:  "",
+			want: map[string]string{},
+		},
+		{
+			name: "whitespace config",
+			raw:  "  \n\t",
+			want: map[string]string{},
+		},
+		{
+			name: "valid config",
+			raw:  `{"DEV":"dev-cluster"}`,
+			want: map[string]string{"DEV": "dev-cluster"},
+		},
+		{
+			name:    "invalid config",
+			raw:     "{",
+			want:    map[string]string{},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseProjectClusterConfig(tt.raw)
+			assert.Equal(t, tt.wantErr, err != nil)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestGetModelProjectsMap(t *testing.T) {
 	db := &dao.DBClient{}
 	m := monkey.PatchInstanceMethod(reflect.TypeOf(db), "GetProjectsByIDs",

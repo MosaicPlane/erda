@@ -1240,6 +1240,17 @@ func initRollbackConfig(rollbackConfig *map[string]int) error {
 	return checkRollbackConfig(rollbackConfig)
 }
 
+func parseProjectClusterConfig(raw string) (map[string]string, error) {
+	clusterConfig := make(map[string]string)
+	if strings.TrimSpace(raw) == "" {
+		return clusterConfig, nil
+	}
+	if err := json.Unmarshal([]byte(raw), &clusterConfig); err != nil {
+		return clusterConfig, err
+	}
+	return clusterConfig, nil
+}
+
 func (p *Project) convertToProjectDTO(joined bool, project *model.Project, stats apistructs.ProjectStats) apistructs.ProjectDTO {
 	l := logrus.WithField("func", "convertToProjectDTO")
 	var rollbackConfig map[string]int
@@ -1247,8 +1258,8 @@ func (p *Project) convertToProjectDTO(joined bool, project *model.Project, stats
 		rollbackConfig = make(map[string]int)
 	}
 
-	var clusterConfig = make(map[string]string)
-	if err := json.Unmarshal([]byte(project.ClusterConfig), &clusterConfig); err != nil {
+	clusterConfig, err := parseProjectClusterConfig(project.ClusterConfig)
+	if err != nil {
 		l.WithError(err).Errorln("failed to Unmarshal project.ClusterConfig")
 	}
 
