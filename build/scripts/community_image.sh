@@ -20,6 +20,8 @@ go_max_procs="${COMMUNITY_GO_MAX_PROCS:-2}"
 go_extra_flags="${GOFLAGS:-}"
 output_type="${COMMUNITY_IMAGE_OUTPUT_TYPE:-docker}"
 output_path="${COMMUNITY_IMAGE_OUTPUT_PATH:-}"
+cache_from="${COMMUNITY_BUILDKIT_CACHE_FROM:-}"
+cache_to="${COMMUNITY_BUILDKIT_CACHE_TO:-}"
 [[ "${go_build_parallelism}" =~ ^[1-9][0-9]*$ ]]
 [[ "${go_max_procs}" =~ ^[1-9][0-9]*$ ]]
 community_configure_image_output \
@@ -29,6 +31,8 @@ trap community_cleanup_image_output EXIT
 buildx_args=(--platform linux/amd64 --provenance=false)
 [[ -z "${BUILDER_NAME:-}" ]] || buildx_args+=(--builder "${BUILDER_NAME}")
 [[ "${NO_CACHE:-false}" != true ]] || buildx_args+=(--no-cache)
+[[ -z "${cache_from}" ]] || buildx_args+=(--cache-from "${cache_from}")
+[[ -z "${cache_to}" ]] || buildx_args+=(--cache-to "${cache_to}")
 [[ -z "${HTTP_PROXY:-}" ]] || buildx_args+=(--build-arg "HTTP_PROXY=${HTTP_PROXY}")
 [[ -z "${HTTPS_PROXY:-}" ]] || buildx_args+=(--build-arg "HTTPS_PROXY=${HTTPS_PROXY}")
 [[ -z "${NO_PROXY:-}" ]] || buildx_args+=(--build-arg "NO_PROXY=${NO_PROXY}")

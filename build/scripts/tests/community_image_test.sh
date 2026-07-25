@@ -41,7 +41,7 @@ done
 source build/community/base-images.env
 [[ "${ERDA_BUILD_IMAGE}" =~ ^docker\.io/library/golang@sha256:[0-9a-f]{64}$ ]]
 [[ "${LIBGIT2_COMMIT}" =~ ^[0-9a-f]{40}$ ]]
-test "$(wc -l < <(rg --files cmd | rg '/main\.go$'))" -eq 24
+test "$(wc -l < <(rg --files cmd | rg '/main\.go$'))" -eq 25
 
 scan_paths=(
   build/community
@@ -102,6 +102,10 @@ grep -Fq 'type=oci,dest=${output_path},rewrite-timestamp=true' \
   build/community/image-output.sh
 grep -Fq 'type=tar,dest=${output_path},rewrite-timestamp=true' \
   build/community/image-output.sh
+grep -Fq 'type=registry,rewrite-timestamp=true' \
+  build/community/image-output.sh
+grep -q 'COMMUNITY_BUILDKIT_CACHE_FROM' build/scripts/community_image.sh
+grep -q 'COMMUNITY_BUILDKIT_CACHE_TO' build/scripts/community_image.sh
 grep -Fq 'rm -f /var/cache/ldconfig/aux-cache' \
   build/dockerfiles/Dockerfile.community
 grep -Fq '/var/log/alternatives.log /var/log/dpkg.log' \

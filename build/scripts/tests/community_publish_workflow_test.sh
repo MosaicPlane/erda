@@ -18,6 +18,16 @@ grep -Fq 'password: ${{ secrets.ACR_PASSWORD }}' "${workflow}"
 grep -q 'sudo apt-get install --no-install-recommends -y ripgrep' "${workflow}"
 grep -Fq 'OUTPUT_IMAGE: ${{ steps.image.outputs.image }}' "${workflow}"
 grep -Fq 'EMBEDDED_IMAGE: ${{ steps.image.outputs.image }}' "${workflow}"
+grep -q '^          COMMUNITY_GO_BUILD_PARALLELISM: "4"$' "${workflow}"
+grep -q '^          COMMUNITY_GO_MAX_PROCS: "4"$' "${workflow}"
+grep -q '^          COMMUNITY_IMAGE_OUTPUT_TYPE: registry$' "${workflow}"
+grep -q '^          COMMUNITY_BUILDKIT_CACHE_FROM: type=gha,scope=community-erda-linux-amd64$' "${workflow}"
+grep -q '^          COMMUNITY_BUILDKIT_CACHE_TO: type=gha,mode=max,scope=community-erda-linux-amd64$' "${workflow}"
+grep -q '^  cancel-in-progress: true$' "${workflow}"
+if grep -q 'docker push' "${workflow}"; then
+  echo "workflow must push directly through the BuildKit registry exporter" >&2
+  exit 1
+fi
 grep -Fq 'IMAGE_REPOSITORY }}@${{ steps.push.outputs.digest }}' "${workflow}"
 grep -q 'platform: "linux/amd64"' "${workflow}"
 grep -q 'sbom.spdx.json' "${workflow}"

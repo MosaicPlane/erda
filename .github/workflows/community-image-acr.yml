@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: community-backend-image-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   ACR_REGISTRY: registry.cn-beijing.aliyuncs.com
@@ -72,17 +72,19 @@ jobs:
           SOURCE_DATE_EPOCH: ${{ steps.image.outputs.epoch }}
           OUTPUT_IMAGE: ${{ steps.image.outputs.image }}
           EMBEDDED_IMAGE: ${{ steps.image.outputs.image }}
-          COMMUNITY_GO_BUILD_PARALLELISM: "1"
-          COMMUNITY_GO_MAX_PROCS: "2"
+          COMMUNITY_GO_BUILD_PARALLELISM: "4"
+          COMMUNITY_GO_MAX_PROCS: "4"
+          COMMUNITY_IMAGE_OUTPUT_TYPE: registry
+          COMMUNITY_BUILDKIT_CACHE_FROM: type=gha,scope=community-erda-linux-amd64
+          COMMUNITY_BUILDKIT_CACHE_TO: type=gha,mode=max,scope=community-erda-linux-amd64
         run: bash build/scripts/community_image.sh
 
-      - name: Push image and resolve remote digest
+      - name: Resolve remote digest
         id: push
         env:
           IMAGE: ${{ steps.image.outputs.image }}
         shell: bash
         run: |
-          docker push "${IMAGE}"
           digest="$(docker buildx imagetools inspect "${IMAGE}" | awk '/^Digest:/ {print $2; exit}')"
           [[ "${digest}" =~ ^sha256:[0-9a-f]{64}$ ]]
           printf 'digest=%s\n' "${digest}" >>"${GITHUB_OUTPUT}"

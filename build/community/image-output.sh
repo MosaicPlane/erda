@@ -20,10 +20,10 @@ community_configure_image_output() {
 
   community_cleanup_image_output
   case "${output_type}" in
-    docker|oci|tar)
+    docker|oci|tar|registry)
       ;;
     *)
-      echo "COMMUNITY_IMAGE_OUTPUT_TYPE must be docker, oci, or tar" >&2
+      echo "COMMUNITY_IMAGE_OUTPUT_TYPE must be docker, oci, tar, or registry" >&2
       return 1
       ;;
   esac
@@ -61,6 +61,16 @@ community_configure_image_output() {
       fi
       community_image_output_args=(
         --output "type=tar,dest=${output_path},rewrite-timestamp=true"
+      )
+      ;;
+    registry)
+      if [[ -n "${output_path}" ]]; then
+        echo "COMMUNITY_IMAGE_OUTPUT_PATH is not supported for registry output" >&2
+        return 1
+      fi
+      community_image_output_args=(
+        --output "type=registry,rewrite-timestamp=true"
+        --tag "${image_name}"
       )
       ;;
   esac

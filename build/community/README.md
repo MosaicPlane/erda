@@ -63,3 +63,13 @@ OCI and tar output require `COMMUNITY_IMAGE_OUTPUT_PATH`. The community
 Dockerfile also removes package-manager caches and time-stamped install logs,
 and its component registration generator sorts scenario names before emitting
 Go source.
+
+CI can push the timestamp-rewritten image directly and reuse a remote BuildKit
+cache without first loading a Docker archive:
+
+```sh
+COMMUNITY_IMAGE_OUTPUT_TYPE=registry \
+COMMUNITY_BUILDKIT_CACHE_FROM=type=gha,scope=community-erda-linux-amd64 \
+COMMUNITY_BUILDKIT_CACHE_TO=type=gha,mode=max,scope=community-erda-linux-amd64 \
+  bash build/scripts/community_image.sh
+```
