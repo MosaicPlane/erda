@@ -26,6 +26,7 @@ required=(
   build/scripts/tests/community_prepare_determinism_test.sh
   build/scripts/tests/community_tidy_retry_test.sh
   build/scripts/tests/community_runtime_node_test.sh
+  build/scripts/tests/community_publish_workflow_test.sh
   build/scripts/tests/community_proto_policy_test.sh
   build/scripts/tests/community_proto_coverage_test.sh
   build/scripts/tests/community_proto_closure_test.sh
@@ -176,4 +177,6 @@ bash -n build/scripts/tests/community_exporter_reproducibility_test.sh
 bash -n build/scripts/tests/community_prepare_determinism_test.sh
 bash -n build/scripts/tests/community_tidy_retry_test.sh
 bash -n build/scripts/tests/community_runtime_node_test.sh
+bash -n build/scripts/tests/community_publish_workflow_test.sh
+bash build/scripts/tests/community_publish_workflow_test.sh
 echo "community backend image policy: PASS"

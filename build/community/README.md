@@ -1,6 +1,8 @@
 # Community backend image verification
 
 `make build-community-image` builds the public, pinned Linux/amd64 backend image.
+By default, the fork tags it as
+`registry.cn-beijing.aliyuncs.com/myerda/erda:sha-<12-character-commit>`.
 `make verify-community-image-reproducibility` performs two no-cache builds with
 separate temporary Buildx builders and requires identical image IDs and root
 filesystem layers.
