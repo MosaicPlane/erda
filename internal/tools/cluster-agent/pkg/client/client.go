@@ -29,12 +29,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rancher/remotedialer"
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/util/retry"
 
 	"github.com/erda-project/erda/apistructs"
 	"github.com/erda-project/erda/internal/tools/cluster-agent/config"
@@ -43,23 +40,16 @@ import (
 )
 
 const (
-	caCrtKey    = "ca.crt"
-	tokenSecKey = "token"
+	serviceAccountCAPath          = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	defaultTokenExpirationSeconds = int64(3600)
 )
-
-var ServiceAccountTokenNotReady = errors.New("service account token not ready")
-
-var defaultRetry = wait.Backoff{
-	Steps:    5,
-	Duration: 200 * time.Millisecond,
-	Factor:   2.0,
-	Jitter:   0.1,
-}
 
 type KubernetesClusterInfo struct {
 	Address string `json:"address"`
 	Token   string `json:"token"`
 	CACert  string `json:"caCert"`
+
+	tokenExpiresAt time.Time
 }
 
 type Option func(*Client)
@@ -72,12 +62,16 @@ type Client struct {
 	newInClusterClient   func(...k8sclient.Option) (*k8sclient.K8sClient, error)
 	newCredentialWatcher func(context.Context, kubernetes.Interface, string) (credentialWatcher, error)
 	watchRetryInterval   time.Duration
+	readFile             func(string) ([]byte, error)
+	now                  func() time.Time
 }
 
 func New(ops ...Option) *Client {
 	c := Client{
 		newInClusterClient: k8sclient.NewForInCluster,
 		watchRetryInterval: time.Second,
+		readFile:           os.ReadFile,
+		now:                time.Now,
 	}
 	c.newCredentialWatcher = func(ctx context.Context, cs kubernetes.Interface, ns string) (credentialWatcher, error) {
 		return c.getRetryWatcher(ctx, cs, ns)
@@ -101,18 +95,6 @@ func (c *Client) DisConnect() {
 func (c *Client) Start(ctx context.Context) error {
 	headers := http.Header{
 		"X-Erda-Cluster-Key": {c.cfg.ClusterKey},
-	}
-
-	if c.cfg.CollectClusterInfo {
-		clusterInfo, err := c.loadClusterInfo(ctx)
-		if err != nil {
-			return err
-		}
-		bytes, err := json.Marshal(clusterInfo)
-		if err != nil {
-			return err
-		}
-		headers["X-Erda-Cluster-Info"] = []string{base64.StdEncoding.EncodeToString(bytes)}
 	}
 
 	ep, err := parseDialerEndpoint(c.cfg.ClusterManagerEndpoint)
@@ -147,7 +129,26 @@ func (c *Client) Start(ctx context.Context) error {
 		}
 
 		headers.Set("Authorization", accessKey)
-		connectCtx, cancel := context.WithCancel(ctx)
+
+		var tokenExpiresAt time.Time
+		if c.cfg.CollectClusterInfo {
+			clusterInfo, err := c.loadClusterInfo(ctx)
+			if err != nil {
+				logrus.Errorf("failed to refresh cluster API credential: %v", err)
+				if !c.waitForConnectionRetry(ctx) {
+					return nil
+				}
+				continue
+			}
+			bytes, err := json.Marshal(clusterInfo)
+			if err != nil {
+				return err
+			}
+			headers.Set("X-Erda-Cluster-Info", base64.StdEncoding.EncodeToString(bytes))
+			tokenExpiresAt = clusterInfo.tokenExpiresAt
+		}
+
+		connectCtx, cancel := c.newConnectContext(ctx, tokenExpiresAt)
 		c.setActiveConnectCancel(cancel)
 		_ = remotedialer.ClientConnect(connectCtx, ep, headers, nil, func(proto, address string) bool {
 			switch proto {
@@ -163,10 +164,15 @@ func (c *Client) Start(ctx context.Context) error {
 		c.setActiveConnectCancel(nil)
 		cancel()
 
-		select {
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			return nil
-		case <-time.After(time.Duration(c.cfg.ConRetryInterval) * time.Second):
+		}
+		if errors.Is(connectCtx.Err(), context.DeadlineExceeded) {
+			logrus.Info("cluster API token refresh deadline reached, reconnecting")
+			continue
+		}
+		if !c.waitForConnectionRetry(ctx) {
+			return nil
 		}
 	}
 }
@@ -196,87 +202,80 @@ func (c *Client) loadClusterInfo(ctx context.Context) (*KubernetesClusterInfo, e
 	clusterInfo := &KubernetesClusterInfo{
 		Address: c.cfg.K8SApiServerAddr,
 	}
+	caData, err := c.readFile(serviceAccountCAPath)
+	if err != nil {
+		return nil, fmt.Errorf("read in-cluster service account CA: %w", err)
+	}
+	if len(caData) == 0 {
+		return nil, errors.New("in-cluster service account CA is empty")
+	}
+	clusterInfo.CACert = base64.StdEncoding.EncodeToString(caData)
 
 	k, err := c.newInClusterClient()
 	if err != nil {
 		return nil, err
 	}
 
-	ns := c.cfg.ErdaNamespace
-	serviceAccountName := c.cfg.ServiceAccount
-	tokenSecretName := c.cfg.ServiceAccountTokenSecret
-
-	// Retrieve the service account
-	serviceAccount, err := k.ClientSet.CoreV1().ServiceAccounts(ns).Get(ctx, serviceAccountName, metav1.GetOptions{})
+	expirationSeconds := c.cfg.TokenExpirationSeconds
+	if expirationSeconds <= 0 {
+		expirationSeconds = defaultTokenExpirationSeconds
+	}
+	tokenRequest, err := k.ClientSet.CoreV1().ServiceAccounts(c.cfg.ErdaNamespace).CreateToken(
+		ctx,
+		c.cfg.ServiceAccount,
+		&authenticationv1.TokenRequest{Spec: authenticationv1.TokenRequestSpec{
+			ExpirationSeconds: &expirationSeconds,
+		}},
+		metav1.CreateOptions{},
+	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("request service account token: %w", err)
+	}
+	clusterInfo.Token = strings.TrimSpace(tokenRequest.Status.Token)
+	if clusterInfo.Token == "" {
+		return nil, errors.New("service account token response is empty")
+	}
+	clusterInfo.tokenExpiresAt = tokenRequest.Status.ExpirationTimestamp.Time
+	if clusterInfo.tokenExpiresAt.IsZero() {
+		return nil, errors.New("service account token response has no expiration timestamp")
+	}
+	if !clusterInfo.tokenExpiresAt.After(c.now()) {
+		return nil, errors.New("service account token is already expired")
 	}
 
-	// Determine which secret to use based on available secrets in the service account
-	var secret *corev1.Secret
-	if len(serviceAccount.Secrets) != 0 {
-		secretName := serviceAccount.Secrets[0].Name
-		secret, err = k.ClientSet.CoreV1().Secrets(ns).Get(ctx, secretName, metav1.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Create or retrieve the service account token secret
-		secret, err = k.ClientSet.CoreV1().Secrets(ns).Get(ctx, tokenSecretName, metav1.GetOptions{})
-		if err != nil {
-			if !k8serrors.IsNotFound(err) {
-				return nil, err
-			}
-			// Create the token secret if it does not exist
-			_, err = k.ClientSet.CoreV1().Secrets(ns).Create(ctx, &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: tokenSecretName,
-					Annotations: map[string]string{
-						corev1.ServiceAccountNameKey: serviceAccountName,
-					},
-				},
-				Type: corev1.SecretTypeServiceAccountToken,
-			}, metav1.CreateOptions{})
-			if err != nil {
-				return nil, err
-			}
-
-			if err = retry.OnError(defaultRetry, func(err error) bool {
-				return errors.Is(err, ServiceAccountTokenNotReady)
-			}, func() error {
-				gotSecret, err := k.ClientSet.CoreV1().Secrets(ns).Get(ctx, tokenSecretName, metav1.GetOptions{})
-				if err != nil {
-					return err
-				}
-				if len(gotSecret.Data) != 0 {
-					secret = gotSecret
-					return nil
-				}
-				return ServiceAccountTokenNotReady
-			}); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	logrus.Infof("gonna to load data from secret %s", secret.Name)
-
-	// Retrieve and process CA certificate
-	caData, ok := secret.Data[caCrtKey]
-	if !ok {
-		return nil, fmt.Errorf("failed to load CA data from secret %s", secret.Name)
-	}
-	clusterInfo.CACert = base64.StdEncoding.EncodeToString(caData)
-
-	// Retrieve and process token
-	token, ok := secret.Data[tokenSecKey]
-	if !ok {
-		return nil, fmt.Errorf("failed to load token from secret %s", secret.Name)
-	}
-	clusterInfo.Token = strings.TrimSpace(string(token))
-
-	logrus.Debugf("loaded cluster info: %#+v", clusterInfo)
+	logrus.Debugf("loaded cluster API credential for %s, expires at %s", clusterInfo.Address, clusterInfo.tokenExpiresAt.Format(time.RFC3339))
 	return clusterInfo, nil
+}
+
+func (c *Client) newConnectContext(ctx context.Context, tokenExpiresAt time.Time) (context.Context, context.CancelFunc) {
+	if tokenExpiresAt.IsZero() {
+		return context.WithCancel(ctx)
+	}
+	return context.WithDeadline(ctx, c.tokenRefreshDeadline(tokenExpiresAt))
+}
+
+func (c *Client) tokenRefreshDeadline(tokenExpiresAt time.Time) time.Time {
+	now := c.now()
+	remaining := tokenExpiresAt.Sub(now)
+	if remaining <= 0 {
+		return now
+	}
+	return now.Add(remaining * 4 / 5)
+}
+
+func (c *Client) waitForConnectionRetry(ctx context.Context) bool {
+	delay := time.Duration(c.cfg.ConRetryInterval) * time.Second
+	if delay <= 0 {
+		delay = 10 * time.Second
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
 }
 
 func parseDialerEndpoint(endpoint string) (string, error) {

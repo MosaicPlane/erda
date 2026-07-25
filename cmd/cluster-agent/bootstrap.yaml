@@ -1,7 +1,6 @@
 cluster-agent:
   debug: ${DEBUG:false}
   serviceAccount: "${SERVICE_ACCOUNT:cluster-agent}"
-  serviceAccountTokenSecret: "${SERVICE_ACCOUNT_TOKEN_SECRET:erda-cluster-agent-token}"
   leaderElection: "${LEADER_ELECTION:true}"
   leaderElectionID: "${LEADER_ELECTION_ID:cluster-agent.erda.cloud}"
   leasesResourceLockType: "${LEASES_RESOURCE_LOCK_TYPE:leases}"
@@ -14,4 +13,4 @@ cluster-agent:
   erdaNamespace: "${DICE_NAMESPACE}"
   clusterAccessKey: "${CLUSTER_ACCESS_KEY}"
   k8sApiServerAddr: "${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}"
-  tokenExpirationSeconds: "${TOKEN_EXPIRATION_SECONDS}"
+  tokenExpirationSeconds: "${TOKEN_EXPIRATION_SECONDS:3600}"

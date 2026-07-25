@@ -23,12 +23,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/wait"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	clientgotesting "k8s.io/client-go/testing"
 
@@ -36,123 +33,66 @@ import (
 	"github.com/erda-project/erda/pkg/k8sclient"
 )
 
-func TestLoadClusterInfo_UsesReferencedServiceAccountSecret(t *testing.T) {
-	c := newLoadClusterInfoTestClient(fakeclientset.NewSimpleClientset(
-		newTestServiceAccount("cluster-agent", "cluster-agent-token-mvp6d"),
-		newSecret("cluster-agent-token-mvp6d", map[string][]byte{
-			caCrtKey:    []byte("fake ca data"),
-			tokenSecKey: []byte("fake token data\n"),
-		}),
-	))
+func TestLoadClusterInfo_UsesTokenRequest(t *testing.T) {
+	now := time.Date(2026, time.July, 25, 8, 0, 0, 0, time.UTC)
+	expiresAt := now.Add(time.Hour)
+	clientSet := fakeclientset.NewSimpleClientset()
+	clientSet.PrependReactor("create", "serviceaccounts", func(action clientgotesting.Action) (bool, runtime.Object, error) {
+		assert.Equal(t, "token", action.GetSubresource())
+		create, ok := action.(clientgotesting.CreateAction)
+		require.True(t, ok)
+		request, ok := create.GetObject().(*authenticationv1.TokenRequest)
+		require.True(t, ok)
+		require.NotNil(t, request.Spec.ExpirationSeconds)
+		assert.Equal(t, int64(3600), *request.Spec.ExpirationSeconds)
+		return true, newTokenRequest(" short-lived-token\n", expiresAt), nil
+	})
 
+	c := newLoadClusterInfoTestClient(clientSet, now)
 	clusterInfo, err := c.loadClusterInfo(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, "https://kubernetes.default.svc", clusterInfo.Address)
 	assert.Equal(t, base64.StdEncoding.EncodeToString([]byte("fake ca data")), clusterInfo.CACert)
-	assert.Equal(t, "fake token data", clusterInfo.Token)
+	assert.Equal(t, "short-lived-token", clusterInfo.Token)
+	assert.Equal(t, expiresAt, clusterInfo.tokenExpiresAt)
+
+	for _, action := range clientSet.Actions() {
+		assert.NotEqual(t, "secrets", action.GetResource().Resource, "cluster info loading must not use legacy token Secrets")
+	}
 }
 
-func TestLoadClusterInfo_UsesExistingTokenSecretWhenServiceAccountHasNoSecrets(t *testing.T) {
-	c := newLoadClusterInfoTestClient(fakeclientset.NewSimpleClientset(
-		newTestServiceAccount("cluster-agent"),
-		newSecret("cluster-agent-token", map[string][]byte{
-			caCrtKey:    []byte("existing ca"),
-			tokenSecKey: []byte("existing token"),
-		}),
-	))
-
-	clusterInfo, err := c.loadClusterInfo(context.Background())
-	require.NoError(t, err)
-	assert.Equal(t, base64.StdEncoding.EncodeToString([]byte("existing ca")), clusterInfo.CACert)
-	assert.Equal(t, "existing token", clusterInfo.Token)
-}
-
-func TestLoadClusterInfo_CreatesTokenSecretAndRetriesUntilReady(t *testing.T) {
-	clientSet := fakeclientset.NewSimpleClientset(newTestServiceAccount("cluster-agent"))
-
-	var (
-		createCount int
-		getCount    int
-	)
-
-	clientSet.PrependReactor("create", "secrets", func(action clientgotesting.Action) (bool, runtime.Object, error) {
-		createCount++
+func TestLoadClusterInfo_UsesConfiguredTokenLifetime(t *testing.T) {
+	now := time.Date(2026, time.July, 25, 8, 0, 0, 0, time.UTC)
+	clientSet := fakeclientset.NewSimpleClientset()
+	clientSet.PrependReactor("create", "serviceaccounts", func(action clientgotesting.Action) (bool, runtime.Object, error) {
 		create := action.(clientgotesting.CreateAction)
-		secret := create.GetObject().(*corev1.Secret).DeepCopy()
-		return true, secret, nil
-	})
-	clientSet.PrependReactor("get", "secrets", func(action clientgotesting.Action) (bool, runtime.Object, error) {
-		get := action.(clientgotesting.GetAction)
-		if get.GetName() != "cluster-agent-token" {
-			return false, nil, nil
-		}
-
-		getCount++
-		switch getCount {
-		case 1:
-			return true, nil, k8serrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, get.GetName())
-		case 2:
-			return true, newSecret("cluster-agent-token", nil), nil
-		default:
-			return true, newSecret("cluster-agent-token", map[string][]byte{
-				caCrtKey:    []byte("ready ca"),
-				tokenSecKey: []byte("ready token"),
-			}), nil
-		}
+		request := create.GetObject().(*authenticationv1.TokenRequest)
+		require.NotNil(t, request.Spec.ExpirationSeconds)
+		assert.Equal(t, int64(7200), *request.Spec.ExpirationSeconds)
+		return true, newTokenRequest("token", now.Add(2*time.Hour)), nil
 	})
 
-	c := newLoadClusterInfoTestClient(clientSet)
-	clusterInfo, err := c.loadClusterInfo(context.Background())
+	c := newLoadClusterInfoTestClient(clientSet, now)
+	c.cfg.TokenExpirationSeconds = 7200
+	_, err := c.loadClusterInfo(context.Background())
 	require.NoError(t, err)
-	assert.Equal(t, 1, createCount)
-	assert.GreaterOrEqual(t, getCount, 3)
-	assert.Equal(t, base64.StdEncoding.EncodeToString([]byte("ready ca")), clusterInfo.CACert)
-	assert.Equal(t, "ready token", clusterInfo.Token)
 }
 
-func TestLoadClusterInfo_MissingRequiredSecretData(t *testing.T) {
-	tests := []struct {
-		name    string
-		data    map[string][]byte
-		wantErr string
-	}{
-		{
-			name: "missing ca data",
-			data: map[string][]byte{
-				tokenSecKey: []byte("token"),
-			},
-			wantErr: "failed to load CA data from secret cluster-agent-token-mvp6d",
-		},
-		{
-			name: "missing token",
-			data: map[string][]byte{
-				caCrtKey: []byte("ca"),
-			},
-			wantErr: "failed to load token from secret cluster-agent-token-mvp6d",
-		},
+func TestLoadClusterInfo_ReturnsCAReadErrorBeforeRequestingToken(t *testing.T) {
+	clientSet := fakeclientset.NewSimpleClientset()
+	c := newLoadClusterInfoTestClient(clientSet, time.Now())
+	c.readFile = func(string) ([]byte, error) {
+		return nil, errors.New("CA volume unavailable")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := newLoadClusterInfoTestClient(fakeclientset.NewSimpleClientset(
-				newTestServiceAccount("cluster-agent", "cluster-agent-token-mvp6d"),
-				newSecret("cluster-agent-token-mvp6d", tt.data),
-			))
-
-			_, err := c.loadClusterInfo(context.Background())
-			require.EqualError(t, err, tt.wantErr)
-		})
-	}
+	_, err := c.loadClusterInfo(context.Background())
+	require.EqualError(t, err, "read in-cluster service account CA: CA volume unavailable")
+	assert.Empty(t, clientSet.Actions())
 }
 
 func TestLoadClusterInfo_ReturnsInClusterClientError(t *testing.T) {
-	c := New(WithConfig(&config.Config{
-		CollectClusterInfo:        true,
-		ErdaNamespace:             metav1.NamespaceDefault,
-		K8SApiServerAddr:          "https://kubernetes.default.svc",
-		ServiceAccount:            "cluster-agent",
-		ServiceAccountTokenSecret: "cluster-agent-token",
-	}))
+	c := New(WithConfig(newLoadClusterInfoTestConfig()))
+	c.readFile = func(string) ([]byte, error) { return []byte("ca"), nil }
 	c.newInClusterClient = func(...k8sclient.Option) (*k8sclient.K8sClient, error) {
 		return nil, errors.New("new in-cluster client failed")
 	}
@@ -161,124 +101,62 @@ func TestLoadClusterInfo_ReturnsInClusterClientError(t *testing.T) {
 	require.EqualError(t, err, "new in-cluster client failed")
 }
 
-func TestLoadClusterInfo_ReturnsRetryErrorWhenTokenSecretNeverReady(t *testing.T) {
-	originalRetry := defaultRetry
-	defaultRetry = wait.Backoff{
-		Steps:    2,
-		Duration: time.Millisecond,
-		Factor:   1,
-		Jitter:   0,
-	}
-	t.Cleanup(func() {
-		defaultRetry = originalRetry
+func TestLoadClusterInfo_ReturnsTokenRequestError(t *testing.T) {
+	clientSet := fakeclientset.NewSimpleClientset()
+	clientSet.PrependReactor("create", "serviceaccounts", func(clientgotesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("token API unavailable")
 	})
+	c := newLoadClusterInfoTestClient(clientSet, time.Now())
 
-	clientSet := fakeclientset.NewSimpleClientset(newTestServiceAccount("cluster-agent"))
-	getCount := 0
-	clientSet.PrependReactor("get", "secrets", func(action clientgotesting.Action) (bool, runtime.Object, error) {
-		get := action.(clientgotesting.GetAction)
-		if get.GetName() != "cluster-agent-token" {
-			return false, nil, nil
-		}
-		getCount++
-		if getCount == 1 {
-			return true, nil, k8serrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, get.GetName())
-		}
-		return true, newSecret("cluster-agent-token", nil), nil
-	})
-	clientSet.PrependReactor("create", "secrets", func(action clientgotesting.Action) (bool, runtime.Object, error) {
-		create := action.(clientgotesting.CreateAction)
-		secret := create.GetObject().(*corev1.Secret).DeepCopy()
-		return true, secret, nil
-	})
-
-	c := newLoadClusterInfoTestClient(clientSet)
 	_, err := c.loadClusterInfo(context.Background())
-	require.ErrorIs(t, err, ServiceAccountTokenNotReady)
+	require.EqualError(t, err, "request service account token: token API unavailable")
 }
 
-func TestLoadClusterInfo_ErrorScenarios(t *testing.T) {
+func TestLoadClusterInfo_RejectsInvalidTokenResponses(t *testing.T) {
+	now := time.Date(2026, time.July, 25, 8, 0, 0, 0, time.UTC)
 	tests := []struct {
-		name    string
-		prepare func(*fakeclientset.Clientset)
-		wantErr string
+		name     string
+		response *authenticationv1.TokenRequest
+		wantErr  string
 	}{
 		{
-			name: "service account get error",
-			prepare: func(clientSet *fakeclientset.Clientset) {
-				clientSet.PrependReactor("get", "serviceaccounts", func(clientgotesting.Action) (bool, runtime.Object, error) {
-					return true, nil, errors.New("service account get failed")
-				})
-			},
-			wantErr: "service account get failed",
+			name:     "empty token",
+			response: newTokenRequest("", now.Add(time.Hour)),
+			wantErr:  "service account token response is empty",
 		},
 		{
-			name: "referenced secret get error",
-			prepare: func(clientSet *fakeclientset.Clientset) {
-				clientSet.PrependReactor("get", "secrets", func(action clientgotesting.Action) (bool, runtime.Object, error) {
-					get := action.(clientgotesting.GetAction)
-					if get.GetName() != "cluster-agent-token-mvp6d" {
-						return false, nil, nil
-					}
-					return true, nil, errors.New("referenced secret get failed")
-				})
-			},
-			wantErr: "referenced secret get failed",
+			name:     "missing expiration",
+			response: newTokenRequest("token", time.Time{}),
+			wantErr:  "service account token response has no expiration timestamp",
 		},
 		{
-			name: "existing token secret get error",
-			prepare: func(clientSet *fakeclientset.Clientset) {
-				clientSet.PrependReactor("get", "secrets", func(action clientgotesting.Action) (bool, runtime.Object, error) {
-					get := action.(clientgotesting.GetAction)
-					if get.GetName() != "cluster-agent-token" {
-						return false, nil, nil
-					}
-					return true, nil, errors.New("existing token secret get failed")
-				})
-			},
-			wantErr: "existing token secret get failed",
-		},
-		{
-			name: "token secret create error",
-			prepare: func(clientSet *fakeclientset.Clientset) {
-				clientSet.PrependReactor("get", "secrets", func(action clientgotesting.Action) (bool, runtime.Object, error) {
-					get := action.(clientgotesting.GetAction)
-					if get.GetName() != "cluster-agent-token" {
-						return false, nil, nil
-					}
-					return true, nil, k8serrors.NewNotFound(schema.GroupResource{Resource: "secrets"}, get.GetName())
-				})
-				clientSet.PrependReactor("create", "secrets", func(clientgotesting.Action) (bool, runtime.Object, error) {
-					return true, nil, errors.New("token secret create failed")
-				})
-			},
-			wantErr: "token secret create failed",
+			name:     "already expired",
+			response: newTokenRequest("token", now.Add(-time.Second)),
+			wantErr:  "service account token is already expired",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			baseObjects := []runtime.Object{
-				newTestServiceAccount("cluster-agent", "cluster-agent-token-mvp6d"),
-				newSecret("cluster-agent-token-mvp6d", map[string][]byte{
-					caCrtKey:    []byte("ca"),
-					tokenSecKey: []byte("token"),
-				}),
-			}
-			if tt.name == "existing token secret get error" || tt.name == "token secret create error" {
-				baseObjects = []runtime.Object{
-					newTestServiceAccount("cluster-agent"),
-				}
-			}
+			clientSet := fakeclientset.NewSimpleClientset()
+			clientSet.PrependReactor("create", "serviceaccounts", func(clientgotesting.Action) (bool, runtime.Object, error) {
+				return true, tt.response, nil
+			})
+			c := newLoadClusterInfoTestClient(clientSet, now)
 
-			clientSet := fakeclientset.NewSimpleClientset(baseObjects...)
-			tt.prepare(clientSet)
-
-			c := newLoadClusterInfoTestClient(clientSet)
 			_, err := c.loadClusterInfo(context.Background())
 			require.EqualError(t, err, tt.wantErr)
 		})
 	}
+}
+
+func TestTokenRefreshDeadline_UsesEightyPercentOfLifetime(t *testing.T) {
+	now := time.Date(2026, time.July, 25, 8, 0, 0, 0, time.UTC)
+	c := New()
+	c.now = func() time.Time { return now }
+
+	assert.Equal(t, now.Add(48*time.Minute), c.tokenRefreshDeadline(now.Add(time.Hour)))
+	assert.Equal(t, now, c.tokenRefreshDeadline(now.Add(-time.Second)))
 }
 
 func TestDisConnect_DoesNotBlockWithoutReceiver(t *testing.T) {
@@ -319,39 +197,33 @@ func TestOnConnect_ReturnsWhenDisConnectRequested(t *testing.T) {
 	}
 }
 
-func newLoadClusterInfoTestClient(clientSet *fakeclientset.Clientset) *Client {
-	c := New(WithConfig(&config.Config{
-		CollectClusterInfo:        true,
-		ErdaNamespace:             metav1.NamespaceDefault,
-		K8SApiServerAddr:          "https://kubernetes.default.svc",
-		ServiceAccount:            "cluster-agent",
-		ServiceAccountTokenSecret: "cluster-agent-token",
-	}))
+func newLoadClusterInfoTestClient(clientSet *fakeclientset.Clientset, now time.Time) *Client {
+	c := New(WithConfig(newLoadClusterInfoTestConfig()))
 	c.newInClusterClient = func(...k8sclient.Option) (*k8sclient.K8sClient, error) {
 		return &k8sclient.K8sClient{ClientSet: clientSet}, nil
 	}
+	c.readFile = func(string) ([]byte, error) {
+		return []byte("fake ca data"), nil
+	}
+	c.now = func() time.Time { return now }
 	return c
 }
 
-func newTestServiceAccount(name string, secretNames ...string) *corev1.ServiceAccount {
-	sa := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: metav1.NamespaceDefault,
-		},
+func newLoadClusterInfoTestConfig() *config.Config {
+	return &config.Config{
+		CollectClusterInfo:     true,
+		ErdaNamespace:          metav1.NamespaceDefault,
+		K8SApiServerAddr:       "https://kubernetes.default.svc",
+		ServiceAccount:         "cluster-agent",
+		TokenExpirationSeconds: 3600,
 	}
-	for _, secretName := range secretNames {
-		sa.Secrets = append(sa.Secrets, corev1.ObjectReference{Name: secretName})
-	}
-	return sa
 }
 
-func newSecret(name string, data map[string][]byte) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: metav1.NamespaceDefault,
+func newTokenRequest(token string, expiresAt time.Time) *authenticationv1.TokenRequest {
+	return &authenticationv1.TokenRequest{
+		Status: authenticationv1.TokenRequestStatus{
+			Token:               token,
+			ExpirationTimestamp: metav1.NewTime(expiresAt),
 		},
-		Data: data,
 	}
 }
