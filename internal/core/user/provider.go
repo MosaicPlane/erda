@@ -29,6 +29,7 @@ import (
 	"github.com/erda-project/erda/internal/core/user/auth/domain"
 	"github.com/erda-project/erda/internal/core/user/common"
 	"github.com/erda-project/erda/internal/core/user/impl/iam"
+	useroidc "github.com/erda-project/erda/internal/core/user/impl/oidc"
 	"github.com/erda-project/erda/internal/core/user/impl/uc"
 	"github.com/erda-project/erda/pkg/common/apis"
 )
@@ -44,6 +45,7 @@ type provider struct {
 	Register transport.Register
 
 	IAM         iam.Interface
+	OIDC        useroidc.Interface
 	UC          uc.Interface
 	userService common.Interface
 }
@@ -54,6 +56,8 @@ func (p *provider) Init(_ servicehub.Context) error {
 		p.userService = p.IAM
 	case domain.OAuthProviderUC:
 		p.userService = p.UC
+	case domain.OAuthProviderOIDC:
+		p.userService = p.OIDC
 	default:
 		return fmt.Errorf("illegal oauth provider %s", p.Cfg.OAuthProvider)
 	}

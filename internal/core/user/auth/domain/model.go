@@ -17,8 +17,9 @@ package domain
 import "net/http"
 
 const (
-	OAuthProviderUC  = "uc"
-	OAuthProviderIAM = "iam"
+	OAuthProviderUC   = "uc"
+	OAuthProviderIAM  = "iam"
+	OAuthProviderOIDC = "oidc"
 )
 
 const (

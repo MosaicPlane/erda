@@ -52,8 +52,10 @@ import (
 	_ "github.com/erda-project/erda/internal/core/user"
 	_ "github.com/erda-project/erda/internal/core/user/auth/facade"
 	_ "github.com/erda-project/erda/internal/core/user/auth/identity/iam"
+	_ "github.com/erda-project/erda/internal/core/user/auth/identity/oidc"
 	_ "github.com/erda-project/erda/internal/core/user/auth/identity/uc"
 	_ "github.com/erda-project/erda/internal/core/user/auth/oauth/iam"
+	_ "github.com/erda-project/erda/internal/core/user/auth/oauth/oidc"
 	_ "github.com/erda-project/erda/internal/core/user/auth/oauth/uc"
 	_ "github.com/erda-project/erda/internal/core/user/impl/uc/eventsync"
 

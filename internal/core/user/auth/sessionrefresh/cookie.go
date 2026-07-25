@@ -29,6 +29,7 @@ type CookieDefaults struct {
 	Domains  []string
 	Path     string
 	HTTPOnly bool
+	Secure   bool
 	SameSite http.SameSite
 	MaxAge   time.Duration
 }
@@ -64,7 +65,7 @@ func BuildCookies(refresh *identitypb.SessionRefresh, defaults CookieDefaults, r
 	}
 
 	httpOnly := pointer.BoolDeref(cookie.HttpOnly, defaults.HTTPOnly)
-	secureDefault := req != nil && req.TLS != nil
+	secureDefault := defaults.Secure || (req != nil && req.TLS != nil)
 	secure := pointer.BoolDeref(cookie.Secure, secureDefault)
 
 	sameSite := SameSiteToHTTP(cookie.SameSite)

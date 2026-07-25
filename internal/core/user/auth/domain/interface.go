@@ -30,7 +30,14 @@ type RefreshWriter interface {
 // SessionRevoker (Optional: revoke session, e.g. remove from redis)
 // TODO:
 type SessionRevoker interface {
-	Revoke(ctx context.Context) error
+	Revoke(ctx context.Context, sessionID string) error
+}
+
+// OAuthStateDecoder resolves the application redirect URL from an opaque,
+// provider-owned OAuth state value. The provider still performs the one-time
+// state validation while exchanging the authorization code.
+type OAuthStateDecoder interface {
+	DecodeState(state string) (string, error)
 }
 
 type UserAuthFacade interface {

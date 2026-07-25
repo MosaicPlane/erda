@@ -192,7 +192,8 @@ func (u *userState) Login(code string, queryValues url.Values) error {
 		return err
 	}
 	u.userInfo = &common.UserInfo{
-		UserInfo: userInfo.Data,
+		UserInfo:       userInfo.Data,
+		SessionRefresh: userInfo.SessionRefresh,
 	}
 	u.state = GotInfo
 	return nil
@@ -216,7 +217,8 @@ func (u *userState) PwdLogin(username, password string) error {
 		return err
 	}
 	u.userInfo = &common.UserInfo{
-		UserInfo: userInfo.Data,
+		UserInfo:       userInfo.Data,
+		SessionRefresh: userInfo.SessionRefresh,
 	}
 	u.state = GotInfo
 	return nil

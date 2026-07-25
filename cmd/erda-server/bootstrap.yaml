@@ -80,6 +80,11 @@ erda.core.org: { }
 erda.core.user:
   oauth_provider: "${OAUTH_PROVIDER:iam}"
 
+# local user directory populated just-in-time from verified OIDC claims
+erda.core.user.oidc:
+  _enable: ${OIDC_ENABLED:false}
+  admin_subjects: "${OIDC_ADMIN_SUBJECTS}"
+
 # user auth facade
 erda.core.user.auth.facade:
   session_cookie_name: "${SESSION_COOKIE_NAME:erda_iam}"
@@ -143,6 +148,24 @@ erda.core.user.oauth.uc:
   token_cache_early_expire_rate: "${OAUTH_TOKEN_CACHE_EARLY_EXPIRE_RATE:0.8}"
   server_token_cache_enabled: "${OAUTH_SERVER_TOKEN_CACHE_ENABLED:true}"
   user_token_cache_enabled: "${OAUTH_USER_TOKEN_CACHE_ENABLED:true}"
+
+# standard OpenID Connect authorization-code flow
+erda.core.user.oauth.oidc:
+  _enable: ${OIDC_ENABLED:false}
+  issuer_url: "${OIDC_ISSUER_URL}"
+  client_id: "${OIDC_CLIENT_ID}"
+  client_secret: "${OIDC_CLIENT_SECRET}"
+  redirect_uri: "${OPENAPI_PUBLIC_URL}/logincb"
+  scopes: "${OIDC_SCOPES:openid profile email}"
+  state_secret: "${OIDC_STATE_SECRET}"
+  state_ttl: "${OIDC_STATE_TTL:10m}"
+  session_ttl: "${OIDC_SESSION_TTL:24h}"
+  redis_key_prefix: "${OIDC_REDIS_KEY_PREFIX:mosaicplane:oidc:}"
+
+erda.core.user.identity.oidc:
+  _enable: ${OIDC_ENABLED:false}
+  session_ttl: "${OIDC_SESSION_TTL:24h}"
+  redis_key_prefix: "${OIDC_REDIS_KEY_PREFIX:mosaicplane:oidc:}"
 
 erda.core.user.identity.uc:
   _enable: ${UC_ENABLED:false}
@@ -236,7 +259,7 @@ openapi-auth-session:
   allowed_referrers: "${ALLOWED_REFERRERS}"
   session_cookie_name: "${SESSION_COOKIE_NAME:erda_iam}"
   session_cookie_domain: "${COOKIE_DOMAIN}"
-  cookie_max_age: "${UC_COOKIE_MAX_AGE:168h}"
+  cookie_max_age: "${SESSION_COOKIE_MAX_AGE:24h}"
   cookie_same_site: "${UC_COOKIE_SAME_SITE:2}"
 openapi-auth-password:
   weight: 50

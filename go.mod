@@ -42,6 +42,7 @@ require (
 	github.com/caarlos0/env v0.0.0-20180521112546-3e0f30cbf50b
 	github.com/cespare/xxhash v1.1.0
 	github.com/cespare/xxhash/v2 v2.3.0
+	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/dlclark/regexp2 v1.11.5
 	github.com/docker/docker v25.0.3+incompatible
@@ -518,7 +519,10 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
-require github.com/volcengine/volc-sdk-golang v1.0.242 // indirect
+require (
+	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
+	github.com/volcengine/volc-sdk-golang v1.0.242 // indirect
+)
 
 replace (
 	erda.cloud/rocketmq => github.com/erda-project/rocketmq-operator v0.0.0-20221222075906-f28c42d7bf23

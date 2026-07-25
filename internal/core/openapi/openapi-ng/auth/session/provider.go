@@ -90,6 +90,7 @@ func (p *provider) WriteRefresh(rw http.ResponseWriter, req *http.Request, refre
 		Domains:  p.Cfg.SessionCookieDomains,
 		Path:     "/",
 		HTTPOnly: true,
+		Secure:   strings.EqualFold(p.Cfg.PlatformProtocol, "https"),
 		SameSite: http.SameSite(p.Cfg.CookieSameSite),
 		MaxAge:   p.Cfg.CookieMaxAge,
 	}, req)
