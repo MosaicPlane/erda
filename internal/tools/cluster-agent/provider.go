@@ -34,7 +34,12 @@ type provider struct {
 }
 
 func (p *provider) Init(ctx servicehub.Context) error {
-	logrus.Infof("load configuration: %+v", p.Cfg)
+	logrus.WithFields(logrus.Fields{
+		"cluster":                p.Cfg.ClusterKey,
+		"clusterManagerEndpoint": p.Cfg.ClusterManagerEndpoint,
+		"leaderElection":         p.Cfg.LeaderElection,
+		"serviceAccount":         p.Cfg.ServiceAccount,
+	}).Info("load cluster-agent configuration")
 	if p.Cfg.Debug {
 		logrus.SetLevel(logrus.DebugLevel)
 		remotedialer.PrintTunnelData = true

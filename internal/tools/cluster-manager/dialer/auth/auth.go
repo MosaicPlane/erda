@@ -85,7 +85,7 @@ func (a *Authorizer) Authorizer(req *http.Request) (string, bool, error) {
 		return clusterKey, true, nil
 	}
 
-	logrus.Debugf("get auth info: %s", authInfo)
+	logrus.Debug("received cluster access key")
 
 	// Doesn't need cache now
 	akSkResp, err := a.Credential.QueryTokens(context.Background(), &tokenpb.QueryTokensRequest{
@@ -99,13 +99,16 @@ func (a *Authorizer) Authorizer(req *http.Request) (string, bool, error) {
 	}
 
 	if akSkResp.Total == 0 {
-		return "", false, fmt.Errorf("auth failed, access key: %s", authInfo)
+		return "", false, fmt.Errorf("auth failed")
 	} else if akSkResp.Total > 1 {
-		logrus.Errorf("duplidate key, please check or rest, access key: %s", authInfo)
+		logrus.Error("duplicate cluster access key, please check or reset it")
 		return "", false, fmt.Errorf("auth server error, duplidate data")
 	}
 
-	logrus.Infof("auth success, resp info: %+v", akSkResp)
+	logrus.WithFields(logrus.Fields{
+		"cluster":    clusterKey,
+		"clientType": clientType,
+	}).Info("cluster access key authentication succeeded")
 
 	return clientType.MakeClientKey(clusterKey), true, nil
 }
