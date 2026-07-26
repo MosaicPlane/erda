@@ -83,14 +83,7 @@ func (a *Aggregator) GetSteveResource(ctx context.Context, req *apistructs.Steve
 		err  error
 	)
 	if req.Type == apistructs.K8SNode || req.NoAuthentication {
-		user = &apiuser.DefaultInfo{
-			Name: "admin",
-			UID:  "admin",
-			Groups: []string{
-				"system:masters",
-				"system:authenticated",
-			},
-		}
+		user = internalSteveUser()
 	} else {
 		user, err = a.Auth(req.UserID, req.OrgID, req.ClusterName)
 		if err != nil {
@@ -167,14 +160,7 @@ func (a *Aggregator) getApiRequest(ctx context.Context, req *apistructs.SteveReq
 
 	var user apiuser.Info
 	if req.Type == apistructs.K8SNode || req.NoAuthentication {
-		user = &apiuser.DefaultInfo{
-			Name: "admin",
-			UID:  "admin",
-			Groups: []string{
-				"system:masters",
-				"system:authenticated",
-			},
-		}
+		user = internalSteveUser()
 	} else {
 		user, err = a.Auth(req.UserID, req.OrgID, req.ClusterName)
 		if err != nil {
@@ -198,6 +184,17 @@ func (a *Aggregator) getApiRequest(ctx context.Context, req *apistructs.SteveReq
 		Response:       &StatusCodeGetter{Response: resp},
 	}
 	return apiOp, resp, nil
+}
+
+// internalSteveUser uses Erda's managed administrator group instead of the
+// Kubernetes-reserved system:masters group. Kubernetes 1.36 refuses delegated
+// impersonation of system:masters, while erda-org-manager is explicitly bound
+// by the managed-cluster bootstrap RBAC.
+func internalSteveUser() apiuser.Info {
+	return &apiuser.DefaultInfo{
+		Name:   "erda-internal",
+		Groups: []string{predefined.OrgManagerGroup},
+	}
 }
 
 type CacheKey struct {

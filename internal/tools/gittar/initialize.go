@@ -59,9 +59,6 @@ func (p *provider) Initialize(ctx context.Context) error {
 		logrus.Debug("DEBUG MODE")
 	}
 
-	// Start zombie process reaper (only active if PID 1)
-	helper.StartZombieReaper()
-
 	if _, err := os.Stat(conf.RepoRoot()); os.IsNotExist(err) {
 		logrus.Infof("repository folder is not exist, will auto create later")
 		err := os.MkdirAll(conf.RepoRoot(), 0755)

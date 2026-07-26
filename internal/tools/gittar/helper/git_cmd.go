@@ -25,12 +25,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/sirupsen/logrus"
 
@@ -40,27 +38,6 @@ import (
 	"github.com/erda-project/erda/internal/tools/gittar/rpcmetrics"
 	"github.com/erda-project/erda/internal/tools/gittar/webcontext"
 )
-
-func StartZombieReaper() {
-	// only run if we are the init process (PID 1) within the container
-	if os.Getpid() == 1 {
-		sc := make(chan os.Signal, 1)
-		signal.Notify(sc, syscall.SIGCHLD)
-		// reap child processes
-		go func() {
-			var status syscall.WaitStatus
-			for range sc {
-				for {
-					wpid, err := syscall.Wait4(-1, &status, syscall.WNOHANG, nil)
-					if wpid <= 0 || err != nil {
-						break
-					}
-					logrus.Infof("reaped zombie process %d", wpid)
-				}
-			}
-		}()
-	}
-}
 
 func gitCommand(ctx context.Context, version string, args ...string) *exec.Cmd {
 	command := exec.CommandContext(ctx, "git", args...)
