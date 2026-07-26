@@ -196,6 +196,21 @@ func TestChain(t *testing.T) {
 	}
 }
 
+func TestNewSteveUserPreservesErdaRoleGroups(t *testing.T) {
+	user := newSteveUser("user-1", []string{bundle.RoleOrgManager})
+	if user.GetName() != "erda-user-user-1" {
+		t.Fatalf("unexpected user name: %s", user.GetName())
+	}
+	if len(user.GetGroups()) != 1 || user.GetGroups()[0] != predefined.OrgManagerGroup {
+		t.Fatalf("unexpected groups: %v", user.GetGroups())
+	}
+	for _, group := range user.GetGroups() {
+		if group == "system:masters" {
+			t.Fatal("Steve users must not impersonate the system:masters group")
+		}
+	}
+}
+
 func TestAudit(t *testing.T) {
 	Init()
 	bundleOpts := []bundle.Option{

@@ -54,7 +54,6 @@ func (a *Authenticator) AuthMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(req.Context(), varsKey, muxVars)
 		req = req.WithContext(ctx)
 		clusterName := muxVars["clusterName"]
-		typ := muxVars["type"]
 
 		userID := req.Header.Get("User-ID")
 		orgID := req.Header.Get("Org-ID")
@@ -109,18 +108,7 @@ func (a *Authenticator) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		name := fmt.Sprintf("erda-user-%s", userID)
-		user := &apiuser.DefaultInfo{
-			Name: name,
-			UID:  name,
-		}
-		for _, role := range rsp.Roles {
-			group, ok := predefined.RoleToGroup[role]
-			if !ok {
-				continue
-			}
-			user.Groups = append(user.Groups, group)
-		}
+		user := newSteveUser(userID, rsp.Roles)
 
 		if len(user.Groups) == 0 {
 			resp.WriteHeader(http.StatusForbidden)
@@ -128,21 +116,22 @@ func (a *Authenticator) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		if req.Method == http.MethodGet && typ == "nodes" {
-			user = &apiuser.DefaultInfo{
-				Name: "admin",
-				UID:  "admin",
-				Groups: []string{
-					"system:masters",
-					"system:authenticated",
-				},
-			}
-		}
-
 		ctx = request.WithUser(ctx, user)
 		req = req.WithContext(ctx)
 		next.ServeHTTP(resp, req)
 	})
+}
+
+func newSteveUser(userID string, roles []string) *apiuser.DefaultInfo {
+	name := fmt.Sprintf("erda-user-%s", userID)
+	user := &apiuser.DefaultInfo{Name: name, UID: name}
+	for _, role := range roles {
+		group, ok := predefined.RoleToGroup[role]
+		if ok {
+			user.Groups = append(user.Groups, group)
+		}
+	}
+	return user
 }
 
 func (a *Authenticator) listClusterByType(ctx context.Context, orgID uint64, types ...string) ([]*clusterpb.ClusterInfo, error) {
