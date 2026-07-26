@@ -16,11 +16,29 @@ package addon
 
 import "testing"
 
+import "github.com/erda-project/erda/internal/tools/orchestrator/dbclient"
+
 func TestAutoInjectMonitorOption(t *testing.T) {
 	if !New().autoInjectMonitor {
 		t.Fatal("monitor auto-injection must remain enabled by default")
 	}
 	if New(WithAutoInjectMonitor(false)).autoInjectMonitor {
 		t.Fatal("monitor auto-injection option was not applied")
+	}
+}
+
+func TestShouldIncludeDefaultPrebuild(t *testing.T) {
+	monitor := dbclient.AddonPrebuild{AddonName: "monitor"}
+	mysql := dbclient.AddonPrebuild{AddonName: "mysql"}
+
+	if !New().shouldIncludeDefaultPrebuild(monitor) {
+		t.Fatal("legacy default behavior must retain monitor")
+	}
+	withoutMonitor := New(WithAutoInjectMonitor(false))
+	if withoutMonitor.shouldIncludeDefaultPrebuild(monitor) {
+		t.Fatal("disabled monitor injection must filter a stale monitor default")
+	}
+	if !withoutMonitor.shouldIncludeDefaultPrebuild(mysql) {
+		t.Fatal("disabling monitor injection must not filter other addons")
 	}
 }

@@ -260,6 +260,12 @@ func (a *Addon) BatchCreate(req *apistructs.AddonCreateRequest) error {
 		// 若默认 addon 不存在，注入默认 addons
 		req.Addons = []apistructs.AddonCreateItem{}
 		for _, defaulPre := range defaultAddons {
+			// A runtime created before monitor auto-injection was disabled may
+			// retain monitor in its prebuild defaults. Do not resurrect that
+			// legacy default unless monitor is explicitly present in dice.yml.
+			if !a.shouldIncludeDefaultPrebuild(defaulPre) {
+				continue
+			}
 			req.Addons = append(req.Addons, apistructs.AddonCreateItem{
 				Name: defaulPre.InstanceName,
 				Type: defaulPre.AddonName,
@@ -398,6 +404,10 @@ func (a *Addon) BatchCreate(req *apistructs.AddonCreateRequest) error {
 		return err
 	}
 	return nil
+}
+
+func (a *Addon) shouldIncludeDefaultPrebuild(prebuild dbclient.AddonPrebuild) bool {
+	return a.autoInjectMonitor || prebuild.AddonName != apistructs.AddonMonitor
 }
 
 func (a *Addon) preparePrebuildChanges(
