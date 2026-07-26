@@ -34,7 +34,6 @@ import (
 	"github.com/erda-project/erda/internal/tools/gittar/auth"
 	"github.com/erda-project/erda/internal/tools/gittar/cache"
 	"github.com/erda-project/erda/internal/tools/gittar/conf"
-	"github.com/erda-project/erda/internal/tools/gittar/helper"
 	"github.com/erda-project/erda/internal/tools/gittar/metrics"
 	"github.com/erda-project/erda/internal/tools/gittar/models"
 	"github.com/erda-project/erda/internal/tools/gittar/pkg/admin_token"
