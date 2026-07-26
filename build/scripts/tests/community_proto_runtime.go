@@ -17,10 +17,11 @@ package main
 import (
 	"fmt"
 
-	_ "github.com/erda-project/erda-proto-go"
 	_ "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
+
+	_ "github.com/erda-project/erda-proto-go"
 )
 
 func main() {
