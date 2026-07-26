@@ -128,7 +128,7 @@ func (p *provider) initEndpoints() (*endpoints.Endpoints, error) {
 		return nil, err
 	}
 
-	if conf.LocalMode() {
+	if conf.LocalMode() || strings.TrimSpace(conf.RedisSentinelAddrs()) == "" {
 		redisCli = redis.NewClient(&redis.Options{
 			Addr:     conf.RedisAddr(),
 			Password: conf.RedisPwd(),

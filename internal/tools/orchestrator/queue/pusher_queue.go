@@ -37,14 +37,21 @@ type PusherQueue struct {
 }
 
 func NewPusherQueue() *PusherQueue {
-	redisClient := redis.NewFailoverClient(&redis.FailoverOptions{
-		MasterName:    conf.RedisMasterName(),
-		SentinelAddrs: strings.Split(conf.RedisSentinels(), ","),
-		Password:      conf.RedisPassword(),
-	})
+	redisClient := newRedisClient(conf.RedisAddr(), conf.RedisPassword(), conf.RedisMasterName(), conf.RedisSentinels())
 	return &PusherQueue{
 		redisClient: redisClient,
 	}
+}
+
+func newRedisClient(addr, password, masterName, sentinelAddrs string) *redis.Client {
+	if strings.TrimSpace(sentinelAddrs) == "" {
+		return redis.NewClient(&redis.Options{Addr: addr, Password: password})
+	}
+	return redis.NewFailoverClient(&redis.FailoverOptions{
+		MasterName:    masterName,
+		SentinelAddrs: strings.Split(sentinelAddrs, ","),
+		Password:      password,
+	})
 }
 
 func (q *PusherQueue) Push(queue QueueEnum, item string) error {
