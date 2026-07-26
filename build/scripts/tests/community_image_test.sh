@@ -106,6 +106,8 @@ grep -Fq 'type=registry,rewrite-timestamp=true' \
   build/community/image-output.sh
 grep -q 'COMMUNITY_BUILDKIT_CACHE_FROM' build/scripts/community_image.sh
 grep -q 'COMMUNITY_BUILDKIT_CACHE_TO' build/scripts/community_image.sh
+grep -Fq 'base_version="$(head -n 1 VERSION)"' build/scripts/community_image.sh
+grep -Fq 'version="${VERSION:-${base_version}-community.${short_revision}}"' build/scripts/community_image.sh
 grep -Fq 'rm -f /var/cache/ldconfig/aux-cache' \
   build/dockerfiles/Dockerfile.community
 grep -Fq '/var/log/alternatives.log /var/log/dpkg.log' \

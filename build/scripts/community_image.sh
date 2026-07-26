@@ -11,7 +11,10 @@ source_date_epoch="${SOURCE_DATE_EPOCH:-$(git show -s --format=%ct "${revision}"
 [[ "${revision}" =~ ^[0-9a-f]{40}$ ]]
 [[ "${source_date_epoch}" =~ ^[0-9]+$ ]]
 short_revision="${revision:0:12}"
-version="${VERSION:-0.1.0-dev.${short_revision}}"
+base_version="$(head -n 1 VERSION)"
+[[ "${base_version}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
+[[ "${base_version}" == *.*.* ]] || base_version="${base_version}.0"
+version="${VERSION:-${base_version}-community.${short_revision}}"
 [[ "${version}" =~ ^[0-9A-Za-z._-]+$ ]]
 output_image="${OUTPUT_IMAGE:-registry.cn-beijing.aliyuncs.com/myerda/erda:sha-${short_revision}}"
 embedded_image="${EMBEDDED_IMAGE:-registry.cn-beijing.aliyuncs.com/myerda/erda:sha-${short_revision}}"

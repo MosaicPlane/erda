@@ -40,7 +40,10 @@ create_builder() {
 revision="${VCS_REF:-$(git rev-parse HEAD)}"
 source_date_epoch="${SOURCE_DATE_EPOCH:-$(git show -s --format=%ct "${revision}")}"
 short_revision="${revision:0:12}"
-version="${VERSION:-0.1.0-dev.${short_revision}}"
+base_version="$(head -n 1 VERSION)"
+[[ "${base_version}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
+[[ "${base_version}" == *.*.* ]] || base_version="${base_version}.0"
+version="${VERSION:-${base_version}-community.${short_revision}}"
 embedded_image="${EMBEDDED_IMAGE:-ghcr.io/mosaicplane/erda:sha-${short_revision}}"
 image_prefix="${COMMUNITY_REPRO_IMAGE_PREFIX:-ghcr.io/mosaicplane/erda:repro-${short_revision}}"
 image_a="${image_prefix}-a"
