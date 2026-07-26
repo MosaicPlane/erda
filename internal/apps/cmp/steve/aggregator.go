@@ -296,30 +296,51 @@ func (a *Aggregator) createPredefinedResource(clusterName string) error {
 
 	for _, sa := range predefined.PredefinedServiceAccount {
 		saClient := client.ClientSet.CoreV1().ServiceAccounts(sa.Namespace)
-		if err = saClient.Delete(a.Ctx, sa.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-			return err
+		current, getErr := saClient.Get(a.Ctx, sa.Name, metav1.GetOptions{})
+		if getErr != nil && !apierrors.IsNotFound(getErr) {
+			return getErr
 		}
-		if _, err = saClient.Create(a.Ctx, sa, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		if apierrors.IsNotFound(getErr) {
+			_, err = saClient.Create(a.Ctx, sa, metav1.CreateOptions{})
+		} else {
+			sa.ResourceVersion = current.ResourceVersion
+			_, err = saClient.Update(a.Ctx, sa, metav1.UpdateOptions{})
+		}
+		if err != nil {
 			return err
 		}
 	}
 
 	crClient := client.ClientSet.RbacV1().ClusterRoles()
 	for _, cr := range predefined.PredefinedClusterRole {
-		if err = crClient.Delete(a.Ctx, cr.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-			return err
+		current, getErr := crClient.Get(a.Ctx, cr.Name, metav1.GetOptions{})
+		if getErr != nil && !apierrors.IsNotFound(getErr) {
+			return getErr
 		}
-		if _, err = crClient.Create(a.Ctx, cr, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		if apierrors.IsNotFound(getErr) {
+			_, err = crClient.Create(a.Ctx, cr, metav1.CreateOptions{})
+		} else {
+			cr.ResourceVersion = current.ResourceVersion
+			_, err = crClient.Update(a.Ctx, cr, metav1.UpdateOptions{})
+		}
+		if err != nil {
 			return err
 		}
 	}
 
 	crbClient := client.ClientSet.RbacV1().ClusterRoleBindings()
 	for _, crb := range predefined.PredefinedClusterRoleBinding {
-		if err = crbClient.Delete(a.Ctx, crb.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
-			return err
+		current, getErr := crbClient.Get(a.Ctx, crb.Name, metav1.GetOptions{})
+		if getErr != nil && !apierrors.IsNotFound(getErr) {
+			return getErr
 		}
-		if _, err = crbClient.Create(a.Ctx, crb, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		if apierrors.IsNotFound(getErr) {
+			_, err = crbClient.Create(a.Ctx, crb, metav1.CreateOptions{})
+		} else {
+			crb.ResourceVersion = current.ResourceVersion
+			_, err = crbClient.Update(a.Ctx, crb, metav1.UpdateOptions{})
+		}
+		if err != nil {
 			return err
 		}
 	}

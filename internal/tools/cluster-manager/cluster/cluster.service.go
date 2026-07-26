@@ -136,7 +136,11 @@ func (c *ClusterService) GetCluster(ctx context.Context, req *pb.GetClusterReque
 }
 
 func (c *ClusterService) CreateCluster(ctx context.Context, req *pb.CreateClusterRequest) (*pb.CreateClusterResponse, error) {
-	logrus.Infof("request body: %+v", req)
+	logrus.WithFields(logrus.Fields{
+		"cluster": req.Name,
+		"orgID":   req.OrgID,
+		"type":    req.Type,
+	}).Info("create cluster request received")
 	if err := auth(ctx); err != nil {
 		return nil, err
 	}
@@ -168,7 +172,7 @@ func (c *ClusterService) CreateCluster(ctx context.Context, req *pb.CreateCluste
 }
 
 func (c *ClusterService) UpdateCluster(ctx context.Context, req *pb.UpdateClusterRequest) (*pb.UpdateClusterResponse, error) {
-	logrus.Infof("request body: %+v", req)
+	logrus.WithField("cluster", req.Name).Info("update cluster request received")
 	if err := auth(ctx); err != nil {
 		return nil, err
 	}
@@ -196,7 +200,7 @@ func (c *ClusterService) DeleteCluster(ctx context.Context, req *pb.DeleteCluste
 }
 
 func (c *ClusterService) PatchCluster(ctx context.Context, req *pb.PatchClusterRequest) (*pb.PatchClusterResponse, error) {
-	logrus.Infof("request body: %+v", req)
+	logrus.WithField("cluster", req.Name).Info("patch cluster request received")
 	if err := auth(ctx); err != nil {
 		return nil, err
 	}
