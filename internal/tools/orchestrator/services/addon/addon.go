@@ -82,19 +82,20 @@ var ExtensionDeployAddon = map[string]string{"mysql": "", "redis": "", "consul":
 
 // Addon addon 实例对象封装
 type Addon struct {
-	db               *dbclient.DBClient
-	bdl              *bundle.Bundle
-	hc               *httpclient.HTTPClient
-	encrypt          *encryption.EnvEncrypt
-	resource         *resource.Resource
-	kms              mysql.KMSWrapper
-	cap              cap.Cap
-	serviceGroupImpl servicegroup.ServiceGroup
-	instanceinfoImpl *instanceinfo.InstanceInfoImpl
-	clusterinfoImpl  clusterinfo.ClusterInfo
-	clusterSvc       clusterpb.ClusterServiceServer
-	tenantSvc        tenantpb.TenantServiceServer
-	org              org.ClientInterface
+	db                *dbclient.DBClient
+	bdl               *bundle.Bundle
+	hc                *httpclient.HTTPClient
+	encrypt           *encryption.EnvEncrypt
+	resource          *resource.Resource
+	kms               mysql.KMSWrapper
+	cap               cap.Cap
+	serviceGroupImpl  servicegroup.ServiceGroup
+	instanceinfoImpl  *instanceinfo.InstanceInfoImpl
+	clusterinfoImpl   clusterinfo.ClusterInfo
+	clusterSvc        clusterpb.ClusterServiceServer
+	tenantSvc         tenantpb.TenantServiceServer
+	org               org.ClientInterface
+	autoInjectMonitor bool
 }
 
 // Option addon 实例对象配置选项
@@ -102,12 +103,20 @@ type Option func(*Addon)
 
 // New 新建 addon service
 func New(options ...Option) *Addon {
-	var addon Addon
+	addon := Addon{autoInjectMonitor: true}
 	for _, op := range options {
 		op(&addon)
 	}
 
 	return &addon
+}
+
+// WithAutoInjectMonitor controls the legacy behavior that adds a monitor addon
+// to every runtime even when it is absent from dice.yml.
+func WithAutoInjectMonitor(enabled bool) Option {
+	return func(a *Addon) {
+		a.autoInjectMonitor = enabled
+	}
 }
 
 // WithDBClient 配置 db client
@@ -264,7 +273,7 @@ func (a *Addon) BatchCreate(req *apistructs.AddonCreateRequest) error {
 			exitMonitor = true
 		}
 	}
-	if !exitMonitor {
+	if a.autoInjectMonitor && !exitMonitor {
 		req.Addons = append(req.Addons, apistructs.AddonCreateItem{
 			Name: apistructs.AddonMonitor,
 			Type: apistructs.AddonMonitor,

@@ -35,6 +35,7 @@ type Conf struct {
 	RedisSentinels             string `env:"REDIS_SENTINELS_ADDR" default:""`
 	RedisAddr                  string `env:"REDIS_ADDR" default:"127.0.0.1:6379"`
 	RedisPassword              string `env:"REDIS_PASSWORD" default:""`
+	AutoInjectMonitor          bool   `env:"AUTO_INJECT_MONITOR" default:"true"`
 	InstancesPerService        int    `env:"INSTANCES_PER_SERVICE" default:"1000"`
 	MainClusterName            string `env:"DICE_CLUSTER_NAME" default:""`
 	TenantGroupKey             string `env:"TENANT_GROUP_KEY" default:""`
@@ -69,6 +70,13 @@ var cfg Conf
 // Load 从环境变量加载配置选项.
 func Load() {
 	envconf.MustLoad(&cfg)
+}
+
+// AutoInjectMonitor reports whether every runtime should receive the legacy
+// monitor addon automatically. Lightweight installations can disable it when
+// the monitor addon catalog is intentionally not installed.
+func AutoInjectMonitor() bool {
+	return cfg.AutoInjectMonitor
 }
 
 // Debug 返回 Debug 选项.

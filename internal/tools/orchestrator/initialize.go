@@ -180,6 +180,7 @@ func (p *provider) initEndpoints(db *dbclient.DBClient) (*endpoints.Endpoints, e
 		addon.WithClusterSvc(p.ClusterSvc),
 		addon.WithTenantSvc(p.TenantSvc),
 		addon.WithOrg(p.Org),
+		addon.WithAutoInjectMonitor(conf.AutoInjectMonitor()),
 	)
 
 	// init runtime service
