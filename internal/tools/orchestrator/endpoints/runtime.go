@@ -262,6 +262,110 @@ func (e *Endpoints) RollbackRuntime(ctx context.Context, r *http.Request, vars m
 	return httpserver.OkResp(data)
 }
 
+func progressiveRuntimeID(vars map[string]string) (uint64, error) {
+	runtimeID, err := strconv.ParseUint(vars["runtimeID"], 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid runtimeID %q", vars["runtimeID"])
+	}
+	return runtimeID, nil
+}
+
+// GetProgressiveReleases returns the OpenKruise rollout state for every
+// stateless service in a runtime.
+func (e *Endpoints) GetProgressiveReleases(ctx context.Context, r *http.Request, vars map[string]string) (httpserver.Responser, error) {
+	operator, err := user.GetUserID(r)
+	if err != nil {
+		return apierrors.ErrGetRuntime.NotLogin().ToResp(), nil
+	}
+	runtimeID, err := progressiveRuntimeID(vars)
+	if err != nil {
+		return apierrors.ErrGetRuntime.InvalidParameter(err).ToResp(), nil
+	}
+	data, err := e.runtime.GetProgressiveReleases(ctx, operator, runtimeID)
+	if err != nil {
+		return errorresp.ErrResp(err)
+	}
+	return httpserver.OkResp(data)
+}
+
+// ConfigureProgressiveRelease enables or disables guarded multi-batch release
+// for one runtime service.
+func (e *Endpoints) ConfigureProgressiveRelease(ctx context.Context, r *http.Request, vars map[string]string) (httpserver.Responser, error) {
+	operator, err := user.GetUserID(r)
+	if err != nil {
+		return apierrors.ErrDeployRuntime.NotLogin().ToResp(), nil
+	}
+	runtimeID, err := progressiveRuntimeID(vars)
+	if err != nil {
+		return apierrors.ErrDeployRuntime.InvalidParameter(err).ToResp(), nil
+	}
+	var req apistructs.ProgressiveReleaseConfig
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return apierrors.ErrDeployRuntime.InvalidParameter(err).ToResp(), nil
+	}
+	if req.ServiceName == "" {
+		return apierrors.ErrDeployRuntime.InvalidParameter("serviceName").ToResp(), nil
+	}
+	data, err := e.runtime.ConfigureProgressiveRelease(ctx, operator, runtimeID, req)
+	if err != nil {
+		return errorresp.ErrResp(err)
+	}
+	return httpserver.OkResp(data)
+}
+
+type progressiveReleaseActionRequest struct {
+	ServiceName string `json:"serviceName"`
+}
+
+func decodeProgressiveAction(r *http.Request) (progressiveReleaseActionRequest, error) {
+	var req progressiveReleaseActionRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err == nil && req.ServiceName == "" {
+		err = fmt.Errorf("serviceName is required")
+	}
+	return req, err
+}
+
+func (e *Endpoints) ApproveProgressiveRelease(ctx context.Context, r *http.Request, vars map[string]string) (httpserver.Responser, error) {
+	operator, err := user.GetUserID(r)
+	if err != nil {
+		return apierrors.ErrDeployRuntime.NotLogin().ToResp(), nil
+	}
+	runtimeID, err := progressiveRuntimeID(vars)
+	if err != nil {
+		return apierrors.ErrDeployRuntime.InvalidParameter(err).ToResp(), nil
+	}
+	req, err := decodeProgressiveAction(r)
+	if err != nil {
+		return apierrors.ErrDeployRuntime.InvalidParameter(err).ToResp(), nil
+	}
+	data, err := e.runtime.ApproveProgressiveRelease(ctx, operator, runtimeID, req.ServiceName)
+	if err != nil {
+		return errorresp.ErrResp(err)
+	}
+	return httpserver.OkResp(data)
+}
+
+func (e *Endpoints) RollbackProgressiveRelease(ctx context.Context, r *http.Request, vars map[string]string) (httpserver.Responser, error) {
+	operator, err := user.GetUserID(r)
+	if err != nil {
+		return apierrors.ErrRollbackRuntime.NotLogin().ToResp(), nil
+	}
+	runtimeID, err := progressiveRuntimeID(vars)
+	if err != nil {
+		return apierrors.ErrRollbackRuntime.InvalidParameter(err).ToResp(), nil
+	}
+	req, err := decodeProgressiveAction(r)
+	if err != nil {
+		return apierrors.ErrRollbackRuntime.InvalidParameter(err).ToResp(), nil
+	}
+	data, err := e.runtime.RollbackProgressiveRelease(ctx, operator, runtimeID, req.ServiceName)
+	if err != nil {
+		return errorresp.ErrResp(err)
+	}
+	return httpserver.OkResp(data)
+}
+
 // ListRuntimes 查询应用实例列表
 func (e *Endpoints) ListRuntimes(ctx context.Context, r *http.Request, vars map[string]string) (httpserver.Responser, error) {
 	orgID, err := getOrgID(r)

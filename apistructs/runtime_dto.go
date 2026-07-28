@@ -109,6 +109,38 @@ type RuntimeServiceDeploymentsDTO struct {
 	Replicas int `json:"replicas"`
 }
 
+// ProgressiveReleaseConfig configures a guarded multi-batch rollout for one
+// stateless runtime service. ObservationSeconds is enforced by MosaicPlane
+// before an operator may approve the next batch.
+type ProgressiveReleaseConfig struct {
+	ServiceName        string `json:"serviceName"`
+	Enabled            bool   `json:"enabled"`
+	FirstBatchReplicas int    `json:"firstBatchReplicas"`
+	ObservationSeconds int    `json:"observationSeconds"`
+}
+
+// ProgressiveReleaseStatus is the UI-facing projection of a Kruise Rollout.
+// It deliberately does not expose the underlying unstructured Kubernetes
+// object so the API remains stable when Kruise evolves.
+type ProgressiveReleaseStatus struct {
+	ServiceName          string     `json:"serviceName"`
+	WorkloadName         string     `json:"workloadName"`
+	Namespace            string     `json:"namespace"`
+	Enabled              bool       `json:"enabled"`
+	Phase                string     `json:"phase"`
+	Message              string     `json:"message"`
+	CurrentStep          int64      `json:"currentStep"`
+	TotalSteps           int64      `json:"totalSteps"`
+	CurrentStepState     string     `json:"currentStepState"`
+	FirstBatchReplicas   int64      `json:"firstBatchReplicas"`
+	ObservationSeconds   int64      `json:"observationSeconds"`
+	ObservationStartedAt *time.Time `json:"observationStartedAt,omitempty"`
+	ObservationEndsAt    *time.Time `json:"observationEndsAt,omitempty"`
+	RemainingSeconds     int64      `json:"remainingSeconds"`
+	CanApprove           bool       `json:"canApprove"`
+	CanRollback          bool       `json:"canRollback"`
+}
+
 type RuntimeServiceResourceDTO struct {
 	CPU  float64 `json:"cpu"`
 	Mem  int     `json:"mem"`
