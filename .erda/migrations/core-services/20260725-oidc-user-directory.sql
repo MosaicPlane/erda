@@ -13,6 +13,6 @@ CREATE TABLE IF NOT EXISTS `mosaicplane_oidc_user` (
   `soft_deleted_at` bigint(20) NOT NULL DEFAULT 0 COMMENT 'soft deletion timestamp',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_mosaicplane_oidc_identity` (`issuer`(255), `subject`),
-  KEY `idx_mosaicplane_oidc_user_username` (`username`),
-  KEY `idx_mosaicplane_oidc_user_email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='MosaicPlane OIDC user directory';
+  KEY `idx_mosaicplane_oidc_user_username` (`username`(191)),
+  KEY `idx_mosaicplane_oidc_user_email` (`email`(191))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='MosaicPlane OIDC user directory';

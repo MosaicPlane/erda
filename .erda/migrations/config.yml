@@ -534,6 +534,7 @@
       - "<=20220215"
     filenames:
       - 20230425-filter-audit.sql
+      - 20260725-oidc-user-directory.sql
   meta:
     columnName:
       - org_name
@@ -551,6 +552,7 @@
       - "<=20220215"
     filenames:
       - 20230425-filter-audit.sql
+      - 20260725-oidc-user-directory.sql
   meta:
     columnName:
       - org_id
