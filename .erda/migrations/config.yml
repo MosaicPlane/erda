@@ -1224,6 +1224,7 @@
       - "<=20220215"
     filenames:
       - 20230425-filter-audit.sql
+      - 20260725-oidc-user-directory.sql
   meta:
     patterns:
       - "^erda_[a-z0-9_]{1,59}"
