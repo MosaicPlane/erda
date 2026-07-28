@@ -21,10 +21,10 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"github.com/erda-project/erda/apistructs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/erda-project/erda/apistructs"
 )
 
 func TestBuildRolloutUsesManualFirstBatchGate(t *testing.T) {
